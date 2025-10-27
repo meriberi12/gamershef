@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamer Şef: Toping Kombo</title>
+    <!-- Tailwind CSS Yükleniyor --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Inter fontunu ayarlama */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        /* YENİ FONT EKLENDİ (Daha oyun/başlıkvari) */
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
+        /* YENİ EKLENTİ: Delius fontu (Restoran adı için) */
+        @import url('https://fonts.googleapis.com/css2?family=Delius&display=swap');
+
+        body { font-family: 'Inter', sans-serif; background-color: #f7f7f7; }
+
+        /* Ana Kapsayıcı ve Menü Konumlandırması */
+        .game-container {
+            max-width: 600px;
+            min-height: 80vh; /* Changed from 80vh for better fit */
+            margin: 10px auto; /* Reduced margin */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* YENİ: Hub Ekranının Üzerine oturması (Z-INDEX KONTROLÜ) */
+        #gameHubScreen {
+            position: absolute;
+            inset: 0;
+            display: none; /* Başlangıçta showGameHub() ile görünür olacak */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30; /* En üstte olmasını sağlar */
+            /* GİRİŞ EKRANI ARKA PLANI BURAYA EKLENDİ (YENİ GÖRSEL) */
+            background-image: url('https://i.hizliresim.com/9ughy4d.png');
+            background-size: cover;
+            background-position: center;
+            background-color: #111; /* Karanlık bir varsayılan renk */
+            cursor: pointer; /* Tıklanabilir olduğunu belli eder */
+
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+            transition: opacity 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Tıklama Alanı: Kullanıcının tıklaması için hafif bir hover efekti */
+        #gameHubScreen:hover {
+            opacity: 0.98;
+             box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Hub içeriği (eski kart, şimdi boş) kaldırıldı */
+        #pizzaCard { display: none; }
+
+        /* ----------------------------------------------------- */
+        /* KASA EKRANI ve KATMANLAR */
+        /* ----------------------------------------------------- */
+        /* KATMAN 1: TAM ARKA PLAN (Z-index: 15) */
+        #orderTakingScreen {
+            position: absolute;
+            inset: 0;
+            flex-grow: 1;
+            width: 100%;
+            display: none;
+            z-index: 15;
+
+            background-image: url('https://i.hizliresim.com/q188tg1.png');
+            background-size: cover;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            background-color: #a0522d;
+
+            padding-bottom: 50px;
+        }
+
+        /* KATMAN 2: MÜŞTERİ (Arka planın önünde duracak) (Z-index: 21) */
+        #customerArea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* İçeriği aşağı itiyor */
+            align-items: center;
+            /* cursor: pointer; */ /* Müşteriye tıklama kaldırıldı, deftere/pizzaya tıklarız */
+            z-index: 21; /* Tezgahtan daha altta olmalı */
+        }
+
+        /* ----------------------------------------------------- */
+        /* KRİTİK EKLENTİ: KATMAN 3: TEZGAH (Müşterilerin önünde duracak) */
+        /* ----------------------------------------------------- */
+        #counterForeground {
+            position: absolute;
+            bottom: 0; /* En alta hizala */
+            left: 0;
+            right: 0;
+            height: 100px; /* <--- BURASI DÜZELTİLDİ: 150px'den 100px'e düşürüldü */
+            z-index: 23; /* Müşterilerden (21) daha yüksek olmalı */
+
+            /* YENİ TEZGAH GÖRSELİ BURAYA EKLE (GÜNCELLENDİ) */
+            background-image: url('https://i.hizliresim.com/6d7bs32.png');
+            background-size: cover; /* Alanı kapla */
+            background-position: center bottom; /* Görseli alt ortaya hizala */
+            background-repeat: no-repeat;
+            pointer-events: none; /* Üzerindeki öğelere tıklamaya izin ver */
+        }
+
+        /* YENİ: KARAKTER GÖLGESİ (Zemine oturtmak için) */
+        #characterShadow {
+            /* BOYUTLAR VE KONUM JS tarafından dinamik olarak ayarlanır */
+            width: 180px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.3);
+
+            /* Konumlandırma JS'ten gelir */
+            transform: translateX(0px) translateY(+31px); /* Bu değer JS'te dinamik olarak ayarlanır */
+            z-index: 19; /* Karakterin arkasında (tezgahın da altında) */
+            filter: blur(10px);
+        }
+
+        #customerEmoji {
+            /* BOYUT VE KONUM JS tarafından dinamik olarak ayarlanır. */
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            transition: transform 0.2s;
+            /* cursor: pointer; */ /* Müşteriye tıklama kaldırıldı */
+            font-size: 300px;
+            border-radius: 50%;
+
+            /* Konumlandırma JS'ten gelir */
+            transform: translateX(0px) translateY(0px);
+            margin-bottom: 0px;
+
+            box-shadow: none;
+        }
+        /* #customerEmoji:hover {
+            transform: translateX(0px) translateY(0px) scale(1.05);
+        } */ /* Hover kaldırıldı */
+
+        /* Skor Ekranı Düzeltme (Artık kullanılmıyor, kaldırılabilir) */
+        #orderTakingScreen .absolute.top-0 {
+            font-size: 0.85rem;
+            padding: 8px;
+        }
+        #orderTakingScreen .absolute.top-0 .text-lg {
+            font-size: 0.9rem;
+        }
+        #orderTakingScreen .absolute.top-0 .text-xl {
+             font-size: 1.1rem;
+        }
+
+        /* Canvas stili */
+        #gameCanvas {
+            border: 2px solid #333;
+            /* background-color: #ffffff; */ /* Beyaz yerine gri yapalım */
+            background-color: #eeeeee;
+            touch-action: none;
+            width: 100%;
+            height: 400px; /* Sabit bir yükseklik verelim */
+        }
+
+        /* Buton stili */
+        .game-button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .game-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        /* YENİ: Devre dışı buton stili */
+        .game-button:disabled {
+            background-color: #9CA3AF; /* gray-400 */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+
+        /* GİRİŞ EKRANI BUTON STİLİ KULLANILMIYOR */
+        #startPizzaFromHub {
+            display: none;
+        }
+
+
+        /* Oyun Kartı Stili (Hub) */
+        .game-card {
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            width: 80%;
+            max-width: 350px;
+        }
+        .game-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Sipariş listesindeki görsel kapsayıcısı */
+        .order-item {
+            width: 35px; /* Defter küçüldüğü için ikonlar da küçüldü */
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px; /* Hafif küçültüldü */
+            box-sizing: content-box;
+            background-color: #fff;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .order-item img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+        .line-through::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px; /* Çizgi inceltildi */
+            background-color: green;
+            transform: translateY(-50%) rotate(-45deg);
+            z-index: 10;
+        }
+
+        /* YENİ: Mesaj Kutusu için resim ve metin hizalaması */
+        #messageBox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #nextItemContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #nextItemImage {
+            width: 50px;
+            height: 50px;
+            margin: 0 8px;
+        }
+
+        /* DEĞİŞİKLİK: Mesaj Kutusu Gizlendi */
+        #messageBox {
+            display: none !important; /* Tamamen gizlendi */
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* DEĞİŞİKLİK: Konuşma Balonu Konumu (JS ile ayarlanacak) */
+        #customerBubble {
+            background-color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 2px solid #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: absolute;
+            /* bottom ve top JS ile ayarlanacak */
+            left: 50%;
+            transform: translateX(-50%) translateY(0); /* Y ekseni kaydırma JS ile yapılacak */
+            max-width: 80%;
+            z-index: 22; /* Kasanın (23) hemen altında, müşterinin (21) üstünde */
+            text-align: center;
+            /* Min height ekleyerek okunabilirliği artıralım */
+            min-height: 50px;
+            display: flex; /* İçeriği dikey ortalamak için */
+            align-items: center;
+            justify-content: center;
+            flex-direction: column; /* Mesaj ve yıldızları alt alta koy */
+            transition: top 0.2s ease-out, bottom 0.2s ease-out; /* Konum değişimi için yumuşak geçiş */
+        }
+        #customerBubble::after { /* Balonun altındaki ok */
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid white;
+        }
+
+        /* Sipariş Defteri Stili */
+        /* DEĞİŞİKLİK: max-width %95 yapıldı */
+        #orderDisplay {
+            position: absolute;
+            bottom: 5px; /* Biraz yukarı alındı */
+            left: 50%; /* Ortalamak için sola %50 */
+            transform: translateX(-50%); /* Ortalamayı tamamla */
+            z-index: 25; /* Tüm UI öğelerinden daha üstte */
+
+            /* Defter Arka Planı */
+            background-image: url('https://i.hizliresim.com/b1i7mrd.png');
+            background-size: 100% 100%; /* Tamamen sığdır */
+            background-position: center;
+            background-repeat: no-repeat;
+
+            height: 180px; /* <--- BURASI DEĞİŞTİ: 200px'den 180px'e düşürüldü */
+            width: 98%; /* <--- BURASI DEĞİŞTİ: 95% den 98%'e yükseltildi */
+            max-width: 98%; /* Genişlik %98 olarak ayarlandı */
+
+            padding: 25px 30px 20px 30px; /* İç boşluklar yanlara doğru artırıldı */
+
+            display: none; /* Başlangıçta gizli */
+            flex-direction: column;
+            justify-content: flex-start; /* İçeriği yukarıdan başlat */
+            align-items: center; /* İçeriği ortala */
+
+            /* Tıklama efekti için animasyon */
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            transform-origin: bottom center; /* Büyüme alttan olsun */
+
+            cursor: pointer; /* Tıklanabilir olduğunu belirt */
+        }
+
+        /* Deftere tıklama efekti (JS ile eklenecek) */
+        #orderDisplay.zooming {
+            transform: translateX(-50%) scale(1.5); /* Ortalamayı koru */
+            opacity: 0;
+        }
+
+        /* Defter içindeki metinler (Okunabilirlik için) */
+        #orderDisplay p {
+            color: #333; /* Koyu renk metin */
+            font-family: 'Delius', cursive; /* El yazısı fontu */
+            text-shadow: none; /* Gölge yok */
+            font-size: 1rem; /* Yazı boyutu ayarlandı */
+            margin-bottom: 2px; /* Dikey boşluk azaltıldı */
+        }
+        #orderDisplay #estimatedPrice {
+            font-size: 1.1rem; /* Ücret yazısı biraz daha büyük */
+        }
+
+
+        /* DEĞİŞİKLİK: Sipariş Listesi - Malzemeler yan yana sığmazsa alt satıra geçsin */
+        #requiredOrder {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap; /* Alt satıra geçmeyi etkinleştir */
+            /* overflow-x: auto; */ /* Scrollbar kaldırıldı */
+            padding: 3px 0; /* Dikey padding azaltıldı */
+            justify-content: center;
+            max-height: initial; /* Yükseklik kısıtlaması kaldırıldı */
+            width: 100%; /* Genişlik artırıldı */
+            margin-bottom: 2px; /* <--- BURASI DEĞİŞTİ: Alt boşluk azaltıldı */
+            gap: 2px; /* Malzemeler arasına küçük boşluk eklendi */
+        }
+
+        /* Siparişin alt kontrol alanı (Fiyat) */
+        #orderDisplay > .mt-3 {
+            margin-top: 5px; /* Boşluk azaltıldı */
+            padding: 0 5px;
+            width: 100%; /* Genişlik artırıldı */
+            text-align: center;
+        }
+
+        /* YENİ EKLENTİ: Teslim Edilecek Pizza Tuvali */
+        #deliveredPizzaContainer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 25; /* Defterle aynı seviyede */
+            padding: 10px;
+            transition: transform 0.2s;
+            cursor: pointer; /* Tıklanabilir */
+        }
+        #deliveredPizzaContainer:hover {
+            transform: scale(1.05);
+        }
+        #deliveredPizzaCanvas {
+             width: 150px; /* Boyut küçültüldü */
+             height: 150px;
+             margin: 0 auto;
+        }
+
+        /* DEĞİŞİKLİK: Ödeme Geri Bildirim Animasyonu (Arka plan kaldırıldı, gölge eklendi) */
+        #paymentFeedback {
+            position: absolute;
+            top: 50%; /* Müşterinin ortasına yakın */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 8px 16px;
+            /* background-color: rgba(255, 215, 0, 0.9); */ /* Arka plan kaldırıldı */
+            color: #FFD700; /* Altın rengi yazı */
+            font-size: 1.8rem; /* Biraz büyütüldü */
+            font-weight: bold;
+            border-radius: 9999px; /* Tam yuvarlak */
+            /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); */ /* Gölge kaldırıldı */
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7); /* Yazıya gölge eklendi */
+            z-index: 26; /* Diğer her şeyin üstünde */
+            opacity: 1;
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+            pointer-events: none; /* Tıklanamaz */
+        }
+
+        #paymentFeedback.fade-out {
+            opacity: 0;
+            transform: translate(-50%, -150%); /* Yukarı doğru kaybol */
+        }
+
+
+        /* YENİ EKLENTİ: Modal Stilleri (Profil, Market) */
+        #profileModal, #marketModal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* JS ile gösterilecek */
+            justify-content: center;
+            align-items: center;
+            z-index: 90; /* En üstte */
+        }
+        #profileContent, #marketContent {
+            background-color: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+             position: relative; /* Simülasyon mesajı için */
+        }
+         /* YENİ: Simülasyon Mesajı (Jeton modalı kaldırıldığı için bu artık markete taşınabilir, ancak şimdilik bırakıldı) */
+         #purchaseSimulationMessage {
+             position: absolute;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             background-color: rgba(0,0,0,0.8);
+             color: white;
+             padding: 15px 20px;
+             border-radius: 8px;
+             z-index: 95; /* Modal içeriğinin üstünde */
+             text-align: center;
+             display: none; /* Başlangıçta gizli */
+        }
+
+
+        /* YENİ: Market başlığı düzenlemesi */
+        #marketHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+        }
+        #marketTitle {
+             font-size: 1.8rem; /* text-3xl */
+             font-weight: bold;
+             color: #1f2937; /* gray-800 */
+        }
+        #marketCoinDisplayContainer {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* space-x-2 */
+        }
+        #marketCoinAmount {
+            font-weight: bold;
+            font-size: 1.25rem; /* text-xl */
+        }
+
+        /* KALDIRILDI: Jeton Satın Al Butonu Stili */
+        /* #buyCoinButton { ... } */
+
+
+        /* YENİ: Market içeriği stili */
+         #marketItemsContainer {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 sütunlu grid */
+            gap: 16px; /* Öğeler arası boşluk */
+            margin-top: 16px;
+            margin-bottom: 16px;
+         }
+        .market-item {
+            border: 1px solid #E5E7EB; /* gray-200 */
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            background-color: #F9FAFB; /* gray-50 */
+            position: relative; /* "Yakında" yazısı için */
+        }
+        .market-item img {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 8px auto; /* Ortala ve alt boşluk */
+            object-fit: contain;
+        }
+        .market-item .price {
+            font-weight: bold;
+            color: #1D4ED8; /* blue-700 */
+        }
+        .market-item .owned-badge {
+            display: inline-block;
+            background-color: #10B981; /* green-500 */
+            color: white;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+        .market-item .coming-soon-badge {
+             position: absolute;
+             top: 4px;
+             right: 4px;
+             background-color: #ef4444; /* red-500 */
+             color: white;
+             padding: 1px 5px;
+             border-radius: 9999px;
+             font-size: 0.65rem;
+             font-weight: bold;
+        }
+
+        /* KALDIRILDI: Jeton Satın Alma Modal Stilleri */
+        /* #coinPurchaseOptions { ... } */
+        /* .coin-purchase-option { ... } */
+        /* .coin-purchase-option.disabled { ... } */
+        /* .coin-purchase-option:hover:not(.disabled) { ... } */
+        /* .coin-purchase-option img { ... } */
+        /* .coin-purchase-amount { ... } */
+        /* .coin-purchase-price { ... } */
+
+
+        /* YENİ: Yarım Yıldız Stili */
+        .star-rating .star {
+            display: inline-block;
+            font-size: 1.8rem; /* text-3xl */
+            position: relative;
+            color: #d1d5db; /* gray-300 - Boş yıldız rengi */
+        }
+        .star-rating .star.filled {
+            color: #facc15; /* yellow-400 - Dolu yıldız rengi */
+        }
+        .star-rating .star.half::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 50%;
+            overflow: hidden;
+            color: #facc15; /* yellow-400 - Dolu yıldız rengi */
+        }
+
+
+        /* DEĞİŞİKLİK: Profil Butonu Stili (Arka plan ve kenarlık kaldırıldı) */
+        .profile-btn {
+            background-color: transparent; /* Arka plan kaldırıldı */
+            border: none; /* Kenarlık kaldırıldı */
+            padding: 0; /* Padding kaldırıldı */
+            transition: transform 0.2s;
+            box-shadow: none; /* Gölge kaldırıldı */
+        }
+        .profile-btn:hover {
+            background-color: transparent; /* Hover arka planı da kaldırıldı */
+            box-shadow: none; /* Hover gölgesi de kaldırıldı */
+            transform: scale(1.05);
+        }
+        /* İkonun rengini kontrol etmek için ayrı bir sınıf (Artık kullanılmıyor, resim var) */
+        .profile-icon {
+            text-shadow: none;
+        }
+
+        /* YENİ: Profil Resmi Seçimi Stili */
+        .profile-avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        /* DEĞİŞİKLİK: Profil resim seçenekleri (Daireler karelere dönüştü) */
+        .profile-avatar-option {
+            width: 80px;
+            height: 80px;
+            /* border-radius: 50%; */ /* KALDIRILDI */
+            border: 3px solid transparent; /* Çerçeve için temel */
+            border-radius: 8px; /* Hafif yuvarlatılmış köşe */
+            cursor: pointer;
+            transition: all 0.2s;
+            object-fit: cover;
+        }
+
+        .profile-avatar-option:hover {
+            border-color: #3B82F6;
+            transform: scale(1.1);
+        }
+
+        .profile-avatar-option.selected {
+            border-color: #10B981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+
+        /* DEĞİŞİKLİK: Seçili profil resmi (Daire kareye dönüştü) */
+        .current-profile-avatar {
+            width: 60px;
+            height: 60px;
+            /* border-radius: 50%; */ /* KALDIRILDI */
+            object-fit: cover;
+            /* border: 2px solid #10B981; */ /* KALDIRILDI */
+            border-radius: 8px; /* Hafif yuvarlatılmış köşe */
+        }
+
+        /* DEĞİŞİKLİK: Market Butonu Stili */
+        #marketButton {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 9999px;
+            box-shadow: none;
+            overflow: hidden;
+        }
+        /* DEĞİŞİKLİK: Para Göstergesi Arka Planı Kaldırıldı */
+        #totalMoneyDisplay {
+             background-color: transparent;
+             box-shadow: none;
+             padding-left: 0; /* Sol padding kaldırıldı */
+             padding-right: 8px; /* Sağ padding azaltıldı */
+        }
+         #totalMoneyDisplay span:first-child { /* Emoji */
+             text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+         }
+         #moneyAmountDisplay { /* Miktar */
+             color: white;
+             font-size: 1.8rem; /* Biraz büyütüldü */
+             text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+         }
+        /* DEĞİŞİKLİK: Hub Restoran Adı Konumu ve Aralığı */
+        #hubSignTextContainer {
+             /* top: 30%; */ /* Önceki konum */
+             /* transform: translate(calc(-50% + 2px), 0); */ /* Önceki transform */
+             top: 28%; /* Biraz yukarı alındı */
+             left: 50%;
+             transform: translate(calc(-50% + 7px), 3px); /* <--- BURASI DEĞİŞTİ: 2px sağa, 3px aşağıya kaydırıldı */
+        }
+         #hubSignText {
+             font-size: 0.9rem;
+             line-height: 1.1; /* Satır aralığı azaltıldı */
+         }
+         #hubSignText span {
+             display: block;
+         }
+         /* DEĞİŞİKLİK: Mobil Kontroller Gizlendi */
+         #mobileControls {
+             display: none;
+         }
+
+
+    </style>
+</head>
+<body>
+
+<div id="app" class="game-container">
+
+    <!-- OYUN MERKEZİ EKRANI (HUB) --><div id="gameHubScreen" class="p-8 w-full hidden">
+
+        <!-- YENİ EKLENTİ: Market Butonu --><button id="marketButton" class="absolute top-2 left-2 p-0 z-35 hover:scale-105 transition-transform rounded-full overflow-hidden">
+            <img src="https://i.hizliresim.com/fbhao7l.png" alt="[Market İkonu]" class="w-16 h-16 object-cover"></button>
+
+        <!-- YENİ EKLENTİ: Profil Simgesi --><button id="profileButton" class="absolute top-2 right-2 p-0 rounded-full text-xl z-35 profile-btn">
+            <img id="profileButtonImage" src="https://i.hizliresim.com/qk2rgym.png" class="w-16 h-16 rounded-full object-cover"> <!-- Varsayılan görsel, ID eklendi --></button>
+
+        <!-- Hub Restoran Adı (Boyut ve konum güncellendi) --><div id="hubSignTextContainer" class="absolute z-35 text-center" style="width: 280px; height: auto;">
+            <h1 id="hubSignText" class="text-white font-bold" style="font-family: 'Delius', cursive; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">
+                <!-- JS ile doldurulacak --></h1>
+        </div>
+
+        <!-- Kapı görseli ve tıklanabilir alan (arka planın kendisi) --></div>
+
+    <!-- MÜŞTERİ VE SİPARİŞ ALMA EKRANI (Başlangıçta gizli) --><div id="orderTakingScreen" class="w-full h-full relative hidden">
+
+        <!-- ANA SAYFAYA DÖN BUTONU --><button onclick="window.showGameHub()" class="absolute top-2 left-2 p-0 bg-transparent rounded-full text-lg hover:scale-110 z-50 transition-transform">
+            <img src="https://i.hizliresim.com/36bdaft.png" alt="[Ana Menü İkonu]" class="w-16 h-16">
+        </button>
+
+        <!-- Toplam Para Göstergesi (Jeton ikonu eklendi) --><div id="totalMoneyDisplay" class="absolute top-2 right-2 p-2 rounded-full z-50 flex items-center space-x-2">
+            <span class="text-3xl">🪙</span> <!-- DEĞİŞİKLİK: TL -> Jeton -->
+            <span id="moneyAmountDisplay" class="text-2xl font-bold text-white">0</span> <!-- DEĞİŞİKLİK: Renk -->
+        </div>
+
+        <!-- Müşteri Alanı --><div id="customerArea" class="px-8 flex-col justify-end h-full">
+
+            <!-- Müşteri Görseli/Emoji --><img id="customerEmoji" class="text-9xl mb-4" onclick="handleCustomerClick()" src="" alt="Müşteri">
+
+            <!-- Karakterin Ayaklarına Gölge --><div id="characterShadow" style="position: absolute; bottom: 0; left: 50%;"></div>
+
+            <!-- Müşteri Konuşma Balonu --><div id="customerBubble" class="hidden">
+                <p id="customerMessage" class="text-gray-700 italic font-semibold text-sm"></p>
+                <!-- Yıldızlar buraya eklenecek (JS ile) -->
+                 <div id="starRatingDisplay" class="star-rating mt-2"></div>
+            </div>
+
+            <!-- Ödeme Geri Bildirim Alanı --><div id="paymentFeedback" class="hidden"></div>
+
+
+            <!-- Müşteri Adı (Gizli) --><div class="absolute top-0 left-0 right-0 p-2 flex justify-between items-center text-white rounded-b-lg hidden">
+                <p id="customerName" class="font-bold text-xl">Kapı Açık</p>
+            </div>
+
+            <!-- TEZGAH GÖRSELİ --><div id="counterForeground"></div>
+
+
+            <!-- Sipariş Defteri (Genişlik güncellendi) --><div id="orderDisplay" class="hidden">
+                 <p class="font-bold text-lg mb-1">Sipariş:</p>
+                 <div id="requiredOrder" class="flex flex-wrap items-center justify-content-center space-x-1 gap-y-1"> <!-- gap-y eklendi --><!-- JS ile eklenecek --></div>
+                 <div class="mt-3">
+                      <p id="estimatedPrice" class="font-bold text-lg text-red-700">Ücret: -- 🪙</p> <!-- DEĞİŞİKLİK: TL -> Jeton -->
+                 </div>
+            </div>
+
+            <!-- Teslim Edilecek Pizza Tuvali Alanı --><div id="deliveredPizzaContainer" class="absolute bottom-0 left-0 right-0 p-3 z-25 hidden flex flex-col items-center cursor-pointer">
+                 <canvas id="deliveredPizzaCanvas" width="150" height="150" class="bg-transparent"></canvas>
+                 <p id="deliveredPizzaPrice" class="font-bold text-lg text-white mt-1" style="text-shadow: 2px 2px 4px #000;"></p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- PIZZA OYUNU KONTEYNERİ --><div id="pizzaGameContainer" class="w-full h-full absolute top-0 left-0 hidden flex-col bg-white">
+
+        <!-- DEĞİŞİKLİK: Başlık ve Skor (Pizza) - Temizlendi -->
+        <header id="pizzaHeader" class="p-2 flex justify-between items-center">
+            <button id="pizzaPauseButton" class="text-3xl font-bold p-1 hover:bg-gray-200 text-gray-700 rounded transition-colors" title="Duraklat/Menü">☰</button>
+
+            <div class="flex items-center space-x-2">
+                <div class="font-bold text-gray-700">Süre: <span id="timerDisplay">--</span></div>
+                <!-- Hata sayacı ve başlık kaldırıldı -->
+            </div>
+        </header>
+
+        <!-- Mesaj Alanı (Gizlendi) --><div id="messageBox" class="text-center font-bold text-gray-800 p-2 bg-yellow-200">Başlamak İçin Bekleniyor...</div>
+
+        <!-- Oyun Tuvali --><canvas id="gameCanvas" width="600" height="400" class="flex-grow"></canvas>
+
+        <!-- Mobil Kontroller (Gizlendi) --><div id="mobileControls" class="p-4 flex justify-center space-x-4 bg-gray-100">
+            <!-- İçerik kaldırıldı veya gizlendi --></div>
+    </div>
+
+    <!-- Duraklatma Menüsü Modal --><div id="pauseMenu" class="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 hidden">
+        <div id="pauseContent" class="bg-white p-8 rounded-xl shadow-2xl text-center">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Oyun Duraklatıldı</h2>
+            <button id="continueButton" class="game-button bg-green-500 hover:bg-green-600 text-white w-48 mb-3 shadow-md shadow-green-300/50">Devam Et</button>
+            <button id="mainMenuButton" class="game-button bg-red-500 hover:bg-red-600 text-white w-48 shadow-md shadow-red-300/50">Ana Ekrana Dön</button>
+        </div>
+    </div>
+
+    <!-- Sonuç/Geri Bildirim Modal (Gizli) --><div id="feedbackModal" class="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 hidden">
+        <!-- İçerik kaldırıldı --></div>
+
+    <!-- PROFİL MODALI --><div id="profileModal" class="hidden">
+        <div id="profileContent" class="bg-white p-6 rounded-xl shadow-2xl">
+            <!-- Başlık (Gizli) --><h2 class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2 hidden">👤 Oyuncu Profili</h2>
+
+            <!-- Sekmeler --><div class="flex border-b mb-4">
+                <button id="profileTabButton" class="flex-1 py-2 font-bold text-blue-600 border-b-2 border-blue-600">Profil</button>
+                <button id="friendsTabButton" class="flex-1 py-2 font-bold text-gray-500">Arkadaşlar</button>
+            </div>
+
+            <!-- Profil Sekmesi İçeriği --><div id="profileTabContent">
+                <!-- Restoran Adı Girişi --><div class="mb-4 text-left">
+                    <label for="usernameInput" class="text-gray-600 font-semibold mb-1 block">Restoran Adı:</label>
+                    <input type="text" id="usernameInput" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Şef'in Yeri">
+                </div>
+
+                <!-- Profil Resmi Seçimi --><div class="mb-6">
+                    <p class="text-gray-600 font-semibold mb-3">Profil Resmi Seç:</p>
+                    <div class="profile-avatar-grid">
+                        <img class="profile-avatar-option selected" src="https://i.hizliresim.com/qk2rgym.png" alt="[Avatar 1]" data-avatar="1">
+                        <img class="profile-avatar-option" src="https://i.hizliresim.com/dbq2t9u.png" alt="[Avatar 2]" data-avatar="2">
+                        <img class="profile-avatar-option" src="https://i.hizliresim.com/7bpte8u.png" alt="[Avatar 3]" data-avatar="3">
+                        <img class="profile-avatar-option" src="https://i.hizliresim.com/aig1b2g.png" alt="[Avatar 4]" data-avatar="4">
+                        <img class="profile-avatar-option" src="https://i.hizliresim.com/766k5kf.png" alt="[Avatar 5]" data-avatar="5">
+                        <img class="profile-avatar-option" src="https://i.hizliresim.com/5nn4s2p.png" alt="[Avatar 6]" data-avatar="6">
+                    </div>
+                </div>
+
+                <div class="text-left mb-6 space-y-2">
+                    <p class="text-gray-600 font-semibold">Kullanıcı ID (Misafir):</p>
+                    <p id="profileUserId" class="text-sm bg-gray-100 p-2 rounded break-all font-mono text-gray-700"></p>
+
+                    <!-- Restoran Puanı --><p class="text-gray-600 font-semibold pt-2">Restoran Puanı:</p>
+                    <p id="profileRatingDisplay" class="text-3xl font-extrabold text-yellow-500">Puan Yok</p>
+                </div>
+
+                <!-- Butonlar --><div class="flex space-x-2 mt-4">
+                    <button onclick="window.closeProfileModal()" class="game-button bg-red-500 hover:bg-red-600 text-white w-1/2">İptal</button>
+                    <button onclick="window.saveAndCloseProfileModal()" class="game-button bg-green-500 hover:bg-green-600 text-white w-1/2">Kaydet</button>
+                </div>
+            </div>
+
+            <!-- Arkadaşlar Sekmesi İçeriği --><div id="friendsTabContent" class="hidden text-center">
+                <h3 class="text-xl font-bold text-gray-700 mb-4">Arkadaşlar</h3>
+                <p class="text-gray-600">Arkadaş listesi özelliği yakında eklenecek.</p>
+                 <button onclick="window.closeProfileModal()" class="game-button bg-red-500 hover:bg-red-600 text-white w-full mt-4">Kapat</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MARKET MODALI --><div id="marketModal" class="hidden">
+        <div id="marketContent" class="bg-white p-6 rounded-xl shadow-2xl">
+            <!-- DEĞİŞİKLİK: Market Başlığı Güncellendi (Jeton al butonu kaldırıldı) -->
+            <div id="marketHeader">
+                 <h2 id="marketTitle">🛒 Market</h2>
+                 <div id="marketCoinDisplayContainer">
+                     <span class="text-3xl">🪙</span>
+                     <span id="marketCoinAmount">0</span>
+                     <!-- <button id="buyCoinButton" onclick="window.showCoinPurchaseModal()">+</button> --> <!-- KALDIRILDI -->
+                 </div>
+            </div>
+            <div id="marketItemsContainer">
+                <!-- JS ile doldurulacak --></div>
+             <p class="text-center text-sm text-gray-500 my-4">Müşteriler bu malzemeleri isteyebilir, hazırlayabilmek için satın alın!</p> <!-- DEĞİŞİKLİK: Margin eklendi -->
+            <button onclick="window.closeMarketModal()" class="game-button bg-red-500 hover:bg-red-600 text-white w-full">Kapat</button>
+        </div>
+    </div>
+
+    <!-- KALDIRILDI: Jeton Satın Alma Modalı -->
+    <!-- <div id="coinPurchaseModal" class="hidden"> ... </div> -->
+
+</div>
+
+<script type="module">
+    // --- FIREBASE SDK IMPORTS ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- GLOBAL FIREBASE DEĞİŞKENLERİ ---
+    let app, auth, db, userId = null;
+    let isAuthReady = false;
+    let highscoreCollectionRef;
+    let appId = 'default-app-id';
+
+    // --- DOM ELEMENTLERİ --- (Gruplandırıldı)
+    const gameContainer = document.getElementById('app');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const deliveredPizzaCanvas = document.getElementById('deliveredPizzaCanvas');
+    const deliveredPizzaContainer = document.getElementById('deliveredPizzaContainer');
+    const deliveredPizzaPrice = document.getElementById('deliveredPizzaPrice');
+    const gameHubScreen = document.getElementById('gameHubScreen');
+    const profileButton = document.getElementById('profileButton');
+    const profileButtonImage = document.getElementById('profileButtonImage');
+    const marketButton = document.getElementById('marketButton');
+    const hubSignText = document.getElementById('hubSignText');
+    const orderTakingScreen = document.getElementById('orderTakingScreen');
+    const customerEmoji = document.getElementById('customerEmoji');
+    const customerName = document.getElementById('customerName');
+    const customerMessage = document.getElementById('customerMessage');
+    const customerBubble = document.getElementById('customerBubble');
+    const starRatingDisplay = document.getElementById('starRatingDisplay');
+    const characterShadow = document.getElementById('characterShadow');
+    const counterForeground = document.getElementById('counterForeground');
+    const paymentFeedback = document.getElementById('paymentFeedback');
+    const orderDisplay = document.getElementById('orderDisplay');
+    const requiredOrderDiv = document.getElementById('requiredOrder');
+    const estimatedPrice = document.getElementById('estimatedPrice');
+    const pizzaGameContainer = document.getElementById('pizzaGameContainer');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const messageBox = document.getElementById('messageBox');
+    const pizzaPauseButton = document.getElementById('pizzaPauseButton');
+    const pauseMenu = document.getElementById('pauseMenu');
+    const continueButton = document.getElementById('continueButton');
+    const mainMenuButton = document.getElementById('mainMenuButton');
+    const profileModal = document.getElementById('profileModal');
+    const profileUserId = document.getElementById('profileUserId');
+    const profileRatingDisplay = document.getElementById('profileRatingDisplay');
+    const usernameInput = document.getElementById('usernameInput');
+    const profileTabButton = document.getElementById('profileTabButton');
+    const friendsTabButton = document.getElementById('friendsTabButton');
+    const profileTabContent = document.getElementById('profileTabContent');
+    const friendsTabContent = document.getElementById('friendsTabContent');
+    const marketModal = document.getElementById('marketModal');
+    const marketItemsContainer = document.getElementById('marketItemsContainer');
+    const marketCoinAmount = document.getElementById('marketCoinAmount');
+    const moneyAmountDisplay = document.getElementById('moneyAmountDisplay');
+    // KALDIRILDI: Jeton Satın Alma Modal DOM Elementleri
+
+
+    // PROFİL DEĞİŞKENLERİ
+    let selectedAvatar = '1';
+    let username = 'Misafir';
+    const avatarUrls = {
+        '1': 'https://i.hizliresim.com/qk2rgym.png','2': 'https://i.hizliresim.com/dbq2t9u.png','3': 'https://i.hizliresim.com/7bpte8u.png','4': 'https://i.hizliresim.com/aig1b2g.png','5': 'https://i.hizliresim.com/766k5kf.png','6': 'https://i.hizliresim.com/5nn4s2p.png'
+    };
+
+    // --- GÖRSEL URL'LERİ & YÜKLEME ---
+    // DEĞİŞİKLİK: Global 'let' ile tanımlama
+    let restaurantBgImage = null, gizemDefaultImage = null, muratDefaultImage = null, muratHappyImage = null, muratAngryImage = null,
+        ayseDefaultImage = null, ayseHappyImage = null, ayseAngryImage = null, canDefaultImage = null, canHappyImage = null,
+        canAngryImage = null, counterForegroundImage = null, pizzaBaseImage = null, tomatoFallingImage = null,
+        oliveFallingImage = null, pepperFallingImage = null, onionFallingImage = null, cheeseFallingImage = null,
+        sujukImage = null, mushroomFallingImage = null, pizzaWithSauceImage = null, cheeseToppingImage = null,
+        oliveImage = null, pepperImage = null, onionImage = null, mushroomToppingImage = null, kitchenBgImage = null,
+        hotdogIconImage = null, hamburgerIconImage = null, durumIconImage = null, fridgeIconImage = null, coinImage = null;
+
+    const RESTAURANT_BG_URL = 'https://i.hizliresim.com/q188tg1.png';
+    const GIZEM_DEFAULT_URL = 'https://i.hizliresim.com/8l2do87.png';
+    const MURAT_DEFAULT_URL = 'https://i.hizliresim.com/iem9amp.png';
+    const MURAT_HAPPY_URL = 'https://i.hizliresim.com/p4h7he5.png';
+    const MURAT_ANGRY_URL = 'https://i.hizliresim.com/nf1eizw.png';
+    const AYSE_DEFAULT_URL = 'https://i.hizliresim.com/7t47z5m.png';
+    const AYSE_HAPPY_URL = 'https://i.hizliresim.com/2rvnjge.png';
+    const AYSE_ANGRY_URL = 'https://i.hizliresim.com/q52oohu.png';
+    const CAN_DEFAULT_URL = 'https://i.hizliresim.com/l43gs07.png';
+    const CAN_HAPPY_URL = 'https://i.hizliresim.com/7cpyn7x.png';
+    const CAN_ANGRY_URL = 'https://i.hizliresim.com/g07fnob.png';
+    const COUNTER_FOREGROUND_URL = 'https://i.hizliresim.com/6d7bs32.png';
+    const PIZZA_BASE_URL = 'https://i.hizliresim.com/phlcff4.png';
+    const TOMATO_FALLING_URL = 'https://i.hizliresim.com/2taztfn.png';
+    const OLIVE_FALLING_URL = 'https://i.hizliresim.com/f32lbal.png';
+    const PEPPER_FALLING_URL = 'https://i.hizliresim.com/go4zght.png';
+    const ONION_FALLING_URL = 'https://i.hizliresim.com/ikh6r20.png';
+    const CHEESE_FALLING_URL = 'https://i.hizliresim.com/2h8j2t4.png';
+    const SUJUK_URL = 'https://i.hizliresim.com/ge3sjql.png';
+    const MUSHROOM_FALLING_URL = 'https://i.hizliresim.com/fizpdtc.png';
+    const PIZZA_WITH_SAUCE_URL = 'https://i.hizliresim.com/qnxicq7.png';
+    const CHEESE_TOPPING_URL = 'https://i.hizliresim.com/m7lkia3.png';
+    const OLIVE_URL = 'https://i.hizliresim.com/2zytclh.png';
+    const PEPPER_URL = 'https://i.hizliresim.com/b91b8tb.png';
+    const ONION_URL = 'https://i.hizliresim.com/mgu4jmw.png';
+    const MUSHROOM_TOPPING_URL = 'https://i.hizliresim.com/6pvq379.png';
+    const KITCHEN_BG_URL = 'https://i.hizliresim.com/gukh4yc.png';
+    const HOTDOG_ICON_URL = 'https://i.hizliresim.com/d7hecfn.png';
+    const HAMBURGER_ICON_URL = 'https://i.hizliresim.com/g896kcb.png';
+    const DURUM_ICON_URL = 'https://i.hizliresim.com/3bcqigy.png';
+    const FRIDGE_ICON_URL = 'https://i.hizliresim.com/ij2hbgg.png';
+    const COIN_IMAGE_URL = 'https://cdn-icons-png.flaticon.com/128/991/991958.png';
+
+    const imageCache = {};
+    function loadImage(url, fallbackName) {
+        if (!url) { console.warn(`Boş URL algılandı: ${fallbackName}`); return null; }
+        if (imageCache[url]) return imageCache[url].image;
+        const img = new Image();
+        img.src = url;
+        imageCache[url] = { image: img, loaded: false, name: fallbackName };
+        img.onload = () => {
+             console.log(`Image loaded: ${fallbackName}`);
+             imageCache[url].loaded = true;
+        };
+        img.onerror = () => { console.warn(`Görsel yüklenemedi: ${url} (${fallbackName}).`); };
+        return img;
+    }
+    const isImageLoaded = (url) => url && imageCache[url] && imageCache[url].loaded;
+
+    // --- SABİTLER ---
+    const PIZZA_RADIUS = 60;
+    const BASE_PRICE = 5; // Jeton
+    const INGREDIENT_PRICE = 5; // Jeton
+    const ERROR_PENALTY = 0.5; // Yıldız cezası
+
+    // Müşteri Tanımları (Değişiklik yok)
+    const CUSTOMERS = [
+        { name: 'Ayşe', default: AYSE_DEFAULT_URL, happy: AYSE_HAPPY_URL, angry: AYSE_ANGRY_URL, messages: { start: 'Merhaba, bugün biraz keyifli bir şeyler istiyorum...', order: 'Tamamdır, bekliyorum!', perfect: 'Harikasınız!', reactionGreat: 'Tam hayal ettiğim gibi!', reactionAverage: 'Pek beklediğim gibi değil...', reactionPoor: 'Hayal kırıklığı oldu.', wrong: 'Bu siparişle mutlu olamadım.' } }, { name: 'Can', default: CAN_DEFAULT_URL, happy: CAN_HAPPY_URL, angry: CAN_ANGRY_URL, messages: { start: 'Karnım zil çalıyor, hadi hızlı ol...', order: 'Hadi bakalım!', perfect: 'Heh, işte bu!', reactionGreat: 'Fena değilsin!', reactionAverage: 'Dikkat biraz ya...', reactionPoor: 'Bu rezalet!', wrong: 'İptal! İptal edin!' } }, { name: 'Gizem', default: GIZEM_DEFAULT_URL, happy: 'https://i.hizliresim.com/44bj0pq.png', angry: 'https://i.hizliresim.com/47gge6a.png', messages: { start: 'Hımm… hangisini seçsem acaba?', order: 'Çok heyecanlı!', perfect: 'Yaşasın! Tam istediğim gibi!', reactionGreat: 'Vaaay, harika kokuyor!', reactionAverage: 'Yanlış olmuş sanırım…', reactionPoor: 'Ama… ben bunu istememiştim ki…', wrong: 'Paramı geri istiyorum.' } }, { name: 'Murat', default: MURAT_DEFAULT_URL, happy: MURAT_HAPPY_URL, angry: MURAT_ANGRY_URL, messages: { start: 'Evlat, bana ince hamurlu bir dilim...', order: 'Bekliyorum, Şef.', perfect: 'Hah! Tam da istediğim gibi!', reactionGreat: 'Ustaya selamımı ilet!', reactionAverage: 'Eh, idare eder.', reactionPoor: 'Genç adam, kulaklarını mı kaybettin?', wrong: 'Kabul edilemez!' } },
+    ];
+
+    // DEĞİŞİKLİK: Market ve Diğer Ürünler (ImageUrl güncellendi)
+    const ALL_GAME_ITEMS = [
+        // Malzemeler
+        { name: 'Hamur', emoji: '🫓', color: '#f0d9a6', layer: 0, isMarketItem: false, type: 'ingredient', imageUrl: PIZZA_BASE_URL },
+        { name: 'Sos', emoji: '🍅', color: '#e74c3c', layer: 1, isMarketItem: false, type: 'ingredient', imageUrl: TOMATO_FALLING_URL },
+        { name: 'Peynir', emoji: '🧀', color: '#f9e79f', layer: 2, isMarketItem: false, type: 'ingredient', imageUrl: CHEESE_FALLING_URL },
+        { name: 'Sucuk', emoji: '🥓', color: '#a03232', layer: 3, isMarketItem: false, type: 'ingredient', imageUrl: SUJUK_URL },
+        { name: 'Mantar', emoji: '🍄', color: '#d3d3d3', layer: 4, isMarketItem: true, price: 1000, type: 'ingredient', imageUrl: MUSHROOM_FALLING_URL },
+        { name: 'Biber', emoji: '🌶️', color: '#00cc00', layer: 4, isMarketItem: true, price: 2000, type: 'ingredient', imageUrl: PEPPER_FALLING_URL },
+        { name: 'Soğan', emoji: '🧅', color: '#ddddff', layer: 4, isMarketItem: true, price: 8000, type: 'ingredient', imageUrl: ONION_FALLING_URL },
+        { name: 'Zeytin', emoji: '⚫', color: '#2c3e50', layer: 5, isMarketItem: true, price: 4000, type: 'ingredient', imageUrl: OLIVE_FALLING_URL },
+        // Yakında Gelecek Ürünler
+        { name: 'Sosisli', emoji: '🌭', layer: -1, isMarketItem: true, price: 15000, type: 'food', comingSoon: true, imageUrl: HOTDOG_ICON_URL },
+        { name: 'Hamburger', emoji: '🍔', layer: -1, isMarketItem: true, price: 25000, type: 'food', comingSoon: true, imageUrl: HAMBURGER_ICON_URL },
+        { name: 'Dürüm', emoji: '🌯', layer: -1, isMarketItem: true, price: 50000, type: 'food', comingSoon: true, imageUrl: DURUM_ICON_URL },
+        { name: 'Buzdolabı', emoji: '🧊', layer: -1, isMarketItem: true, price: 100000, type: 'equipment', comingSoon: true, imageUrl: FRIDGE_ICON_URL }
+    ];
+    const ALL_POSSIBLE_INGREDIENTS = ALL_GAME_ITEMS.filter(item => item.type === 'ingredient');
+    let CURRENTLY_AVAILABLE_INGREDIENTS = ALL_POSSIBLE_INGREDIENTS.filter(ing => !ing.isMarketItem);
+
+    // Pizza topping konumlandırma verileri (Değişiklik yok)
+    const TOPPING_LOCATIONS = {
+        'Hamur': { count: 1, type: 'layer' }, 'Sos': { count: 1, type: 'layer' }, 'Peynir': { count: 1, type: 'layer' }, 'Sucuk': { count: 6, size: 35 / 1.5, type: 'piece', radii: [PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.70], angles: [0, 60, 120, 180, 240, 300] }, 'Mantar': { count: 6, size: 30 / 1.5, type: 'piece', radii: [PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.45], angles: [30, 90, 150, 210, 270, 330] }, 'Biber': { count: 6, size: 40 / 1.5, type: 'piece', radii: [PIZZA_RADIUS*0.65, PIZZA_RADIUS*0.65, PIZZA_RADIUS*0.65, PIZZA_RADIUS*0.65, PIZZA_RADIUS*0.65, PIZZA_RADIUS*0.65], angles: [30, 90, 150, 210, 270, 330] }, 'Soğan': { count: 6, size: 35 / 1.5, type: 'piece', radii: [PIZZA_RADIUS*0.15, PIZZA_RADIUS*0.35, PIZZA_RADIUS*0.25, PIZZA_RADIUS*0.45, PIZZA_RADIUS*0.10, PIZZA_RADIUS*0.30], angles: [0, 60, 120, 180, 240, 300] }, 'Zeytin': { count: 5, size: 25 / 1.5, type: 'piece', radii: [PIZZA_RADIUS*0.50, PIZZA_RADIUS*0.70, PIZZA_RADIUS*0.30, PIZZA_RADIUS*0.80, PIZZA_RADIUS*0.60], angles: [0, 72, 144, 216, 288] }
+    };
+
+    function getToppingPosition(toppingName, pieceIndex) {
+        const data=TOPPING_LOCATIONS[toppingName]; if (!data || data.type==='layer' || pieceIndex>=data.count) return {px:0, py:0, pieceSize:0}; const index=pieceIndex; const radius=data.radii[index]; const angleDegrees=data.angles[index]; const angleRadians=angleDegrees*(Math.PI/180); const px=Math.cos(angleRadians)*radius; const py=Math.sin(angleRadians)*radius; return {px, py, pieceSize: data.size};
+    }
+    function generateScatterPoints(pizzaRadius) { return [{ px: 0, py: 0, pieceSize: pizzaRadius * 2 }]; }
+
+    // Oyun Değişkenleri
+    let gameState = 'LOADING'; // Başlangıç durumu
+    let currentActiveGame = null;
+    let totalMoney = 1000;
+    let totalRatingPoints = 0;
+    let customerCount = 0;
+    let playerOwnedItems = ALL_GAME_ITEMS.filter(item => !item.isMarketItem).map(item => item.name); // Başlangıç item'ları
+    let playerOwnedIngredients = playerOwnedItems.filter(name => ALL_GAME_ITEMS.find(item => item.name === name && item.type === 'ingredient'));
+    let playerX = 300;
+    let fallingIngredients = [];
+    let caughtIngredients = [];
+    let currentOrder = [];
+    let timeLimit = 0;
+    let orderStartTime = 0;
+    let timeLeft = 0;
+    let currentCustomer = null;
+    let lastRequiredIngredientDropTime = Date.now();
+    let frameCount = 0;
+    let timeInterval = null;
+    let lastCustomerName = null;
+    let errorCount = 0;
+    let MAX_CAUGHT_ITEMS = 0;
+    let gameLoopRequestId = null; // Oyun döngüsü ID'si
+
+
+    // --- SINIF TANIMLARI --- (FallingIngredient - Değişiklik yok)
+    class FallingIngredient {
+        constructor(a) {
+            this.data = a;
+            this.size = a.name === 'Zeytin' ? 45 * 1.25 : 45; // Boyut
+            this.x = Math.random() * (canvas.width - this.size);
+            this.y = 0;
+            this.speed = 0.8 + Math.random() * 0.3; // Hız
+        }
+        draw() { /* ... önceki gibi ... */
+            let imgElement = null;
+            const itemData = ALL_GAME_ITEMS.find(item => item.name === this.data.name);
+            const imageUrl = itemData?.imageUrl;
+
+            if (imageUrl && isImageLoaded(imageUrl)) {
+                 imgElement = imageCache[imageUrl].image;
+                 ctx.drawImage(imgElement, this.x, this.y, this.size, this.size);
+            } else { // Fallback to emoji/color
+                 ctx.beginPath();
+                 ctx.arc(this.x + this.size / 2, this.y + this.size / 2, this.size / 2, 0, Math.PI * 2);
+                 ctx.fillStyle = this.data.color || '#cccccc'; // Fallback color
+                 ctx.fill();
+                 ctx.strokeStyle = '#333';
+                 ctx.lineWidth = 1;
+                 ctx.stroke();
+                 if (this.data.emoji) {
+                      ctx.font = `${this.size * 0.6}px sans-serif`; // Boyuta göre ayarla
+                      ctx.fillStyle = 'black';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'middle';
+                      ctx.fillText(this.data.emoji, this.x + this.size / 2, this.y + this.size / 2 + 2); // Biraz aşağı kaydır
+                 }
+            }
+        }
+        update() { this.y += this.speed; }
+    }
+
+    // --- ÇİZİM VE GÜNCELLEME FONKSİYONLARI ---
+    function drawPizza(playerX) { /* ... önceki gibi ... */
+        const a=PIZZA_RADIUS,b=a*.9,c=playerX,d=canvas.height*.9;ctx.save();ctx.translate(c,d);const e=caughtIngredients.some(a=>a.name==='Hamur'),f=caughtIngredients.some(a=>a.name==='Sos'),g=caughtIngredients.some(a=>a.name==='Peynir');if(e){let c=pizzaBaseImage,d=PIZZA_BASE_URL;if(f&&isImageLoaded(PIZZA_WITH_SAUCE_URL)){c=pizzaWithSauceImage;d=PIZZA_WITH_SAUCE_URL}if(isImageLoaded(d)){const b=a*2;ctx.drawImage(c,-a,-a,b,b)}else{const c=ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Hamur');ctx.beginPath();ctx.arc(0,0,a,0,Math.PI*2);ctx.fillStyle=f?ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Sos').color:c.color;ctx.fill();ctx.strokeStyle='#a0522d';ctx.lineWidth=5;ctx.stroke()}}if(g){const c=b*2;if(isImageLoaded(CHEESE_TOPPING_URL))ctx.drawImage(cheeseToppingImage,-b,-b,c,c);else{ctx.beginPath();ctx.arc(0,0,b,0,Math.PI*2);ctx.fillStyle=ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Peynir').color;ctx.fill()}}const h=Array.from(new Set(caughtIngredients.filter(a=>a.layer>=3).map(a=>a.name)));h.forEach(b=>{const c=TOPPING_LOCATIONS[b];if(!c||c.type!=='piece')return;const d=caughtIngredients.filter(a=>a.name===b).length;for(let e=0;e<d&&e<c.count;e++){const f=getToppingPosition(b,e),g=f.pieceSize,h=Math.sqrt(f.px*f.px+f.py*f.py);if(h+g/2<=a){let a=null,d='';switch(b){case 'Sucuk':d=SUJUK_URL;a=sujukImage;break;case 'Mantar':d=MUSHROOM_TOPPING_URL;a=mushroomToppingImage;break;case 'Zeytin':d=OLIVE_URL;a=oliveImage;break;case 'Biber':d=PEPPER_URL;a=pepperImage;break;case 'Soğan':d=ONION_URL;a=onionImage;break}if(d&&isImageLoaded(d))ctx.drawImage(a,f.px-g/2,f.py-g/2,g,g);else{const a=ALL_POSSIBLE_INGREDIENTS.find(a=>a.name===b);ctx.beginPath();ctx.arc(f.px,f.py,g/2,0,Math.PI*2);ctx.fillStyle=a.color;ctx.fill();ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.stroke();ctx.font=`${g+4}px Inter`;ctx.fillStyle='black';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.emoji,f.px,f.py+2)}}}});ctx.restore()
+    }
+    function drawFinalPizza(targetCanvas) { /* ... önceki gibi ... */
+        const a=targetCanvas.width/3.5,b=targetCanvas.width/2,c=targetCanvas.height/2,d=targetCanvas.getContext('2d');d.clearRect(0,0,targetCanvas.width,targetCanvas.height);d.save();d.translate(b,c);const e=caughtIngredients.some(a=>a.name==='Hamur'),f=caughtIngredients.some(a=>a.name==='Sos'),g=caughtIngredients.some(a=>a.name==='Peynir');if(e){let b=pizzaBaseImage,c=PIZZA_BASE_URL;if(f&&isImageLoaded(PIZZA_WITH_SAUCE_URL)){b=pizzaWithSauceImage;c=PIZZA_WITH_SAUCE_URL}if(isImageLoaded(c)){const c=a*2;d.drawImage(b,-a,-a,c,c)}}if(g){const b=a*.9,c=b*2;if(isImageLoaded(CHEESE_TOPPING_URL))d.drawImage(cheeseToppingImage,-b,-b,c,c)}const h=Array.from(new Set(caughtIngredients.filter(a=>a.layer>=3).map(a=>a.name)));h.forEach(b=>{const c=TOPPING_LOCATIONS[b];if(!c||c.type!=='piece')return;const e=caughtIngredients.filter(a=>a.name===b).length;for(let f=0;f<e&&f<c.count;f++){const c=TOPPING_LOCATIONS[b],e=c.radii[f]/PIZZA_RADIUS*a,g=c.angles[f]*(Math.PI/180),h=Math.cos(g)*e,i=Math.sin(g)*e,j=c.size/PIZZA_RADIUS*a;if(h+j/2>a)continue;let k=null,l='';switch(b){case 'Sucuk':l=SUJUK_URL;k=sujukImage;break;case 'Mantar':l=MUSHROOM_TOPPING_URL;k=mushroomToppingImage;break;case 'Zeytin':l=OLIVE_URL;k=oliveImage;break;case 'Biber':l=PEPPER_URL;k=pepperImage;break;case 'Soğan':l=ONION_URL;k=onionImage;break}if(l&&isImageLoaded(l))d.drawImage(k,h-j/2,i-j/2,j,j)}});d.restore()
+    }
+
+    // --- ANA OYUN DÖNGÜSÜ ---
+    function gameLoop() {
+        if (gameState !== 'PLAYING') {
+            // Oyun durumu 'PLAYING' değilse bile döngüyü durdurma, sadece çizim yapma
+            // Bu, pause menüsü vb. durumlar için önemlidir
+            if (gameLoopRequestId) { // Eğer bir önceki frame ID'si varsa, bir sonrakini iste
+                 gameLoopRequestId = requestAnimationFrame(gameLoop);
+            }
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Arka planı çiz (yüklendiyse) veya geçici renk kullan
+        if (kitchenBgImage && isImageLoaded(KITCHEN_BG_URL)) {
+             ctx.drawImage(kitchenBgImage, 0, 0, canvas.width, canvas.height);
+             // console.log("Drawing kitchen background image"); // DEBUG
+        } else {
+             ctx.fillStyle = '#eeeeee'; // Açık gri
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
+             // console.log("Drawing fallback background"); // DEBUG
+        }
+
+
+        drawPizza(playerX); // Pizzayı çiz
+        frameCount++;
+
+        // Malzeme düşürme mantığı
+        const availableToDrop = currentOrder.filter(item =>
+             item.name !== 'Hamur' && // Hamur düşmez
+             playerOwnedIngredients.includes(item.name) && // Sahip olunan
+             ALL_POSSIBLE_INGREDIENTS.find(i => i.name === item.name) // Malzeme olmalı
+        );
+        let ingredientToDrop = null;
+        if (frameCount % 70 === 0 && availableToDrop.length > 0) { // Sıklık
+            const randomIndex = Math.floor(Math.random() * availableToDrop.length);
+            ingredientToDrop = availableToDrop[randomIndex];
+        }
+
+        // Yeni malzeme ekle
+        if (ingredientToDrop) {
+            fallingIngredients.push(new FallingIngredient(ingredientToDrop));
+        }
+
+        // Düşenleri güncelle ve çiz, çarpışmaları kontrol et
+        for (let i = fallingIngredients.length - 1; i >= 0; i--) {
+            const falling = fallingIngredients[i];
+            falling.update();
+            falling.draw();
+
+            if (checkCollision(falling)) {
+                 handleCatch(falling);
+                 fallingIngredients.splice(i, 1); // Yakalananı kaldır
+            } else if (falling.y > canvas.height) {
+                 fallingIngredients.splice(i, 1); // Ekran dışına çıkanı kaldır
+            }
+        }
+
+        // Bitiş kontrolü: Yakalanması gereken *kalan* malzeme sayısına göre
+        const currentCaughtCount = caughtIngredients.length - 1; // Hamur hariç
+        if (currentCaughtCount >= MAX_CAUGHT_ITEMS) { // MAX_CAUGHT_ITEMS hamur hariç hesaplanıyor
+             if (gameState === 'PLAYING') {
+                 finishOrder(false); // Zaman bitmedi
+             }
+        }
+
+        gameLoopRequestId = requestAnimationFrame(gameLoop); // Bir sonraki frame için çağrı
+    }
+
+
+    // --- FIREBASE DATA HANDLING --- (Değişiklik yok)
+    async function saveProfileSettingsToFirestore() { /* ... önceki gibi ... */
+        if(!userId||!highscoreCollectionRef)return;try{const a=doc(highscoreCollectionRef,"profile_settings");await setDoc(a,{selectedAvatar:selectedAvatar,username:username,lastUpdated:new Date},{merge:true})}catch(b){console.error("Error saving profile settings:",b)}
+    }
+    async function saveRestaurantStatsToFirestore() { /* ... önceki gibi ... */
+         if(!userId||!highscoreCollectionRef)return;try{const a=doc(highscoreCollectionRef,"restaurant_stats");
+        // playerOwnedItems'ı kaydet (artık sadece malzemeler değil)
+        await setDoc(a,{totalRatingPoints:totalRatingPoints,customerCount:customerCount,totalMoney:totalMoney,playerOwnedItems:playerOwnedItems},{merge:true});
+        console.log("Restaurant stats saved:",{totalMoney,playerOwnedItems})}catch(b){console.error("Error saving restaurant stats:",b)}
+    }
+    async function loadAllProfileDataFromFirestore() { /* ... önceki gibi ... */
+        const defaultOwnedItems = ALL_GAME_ITEMS.filter(item => !item.isMarketItem).map(item => item.name);
+
+        if(!userId || !highscoreCollectionRef){
+            selectedAvatar='1';
+            username='Misafir';
+            totalMoney = 1000; // Başlangıç Jetonu
+            totalRatingPoints=0;
+            customerCount=0;
+            playerOwnedItems = [...defaultOwnedItems]; // Tüm başlangıç item'ları
+            playerOwnedIngredients = playerOwnedItems.filter(name => ALL_GAME_ITEMS.find(item => item.name === name && item.type === 'ingredient')); // Sahip olunanlardan malzemeleri ayıkla
+            updateProfileAvatar();
+            updateUsernameUI();
+            updateMoneyDisplays(); // Jeton göstergelerini güncelle
+            updateCurrentlyAvailableIngredients();
+            console.log("Default data loaded:", {totalMoney, playerOwnedItems});
+             // Hub'ı göster
+             if (gameState !== 'PLAYING' && gameState !== 'PAUSED') {
+                 window.showGameHub();
+             }
+            return;
+        }
+
+        try {
+            const profileDocRef = doc(highscoreCollectionRef,"profile_settings");
+            const profileSnap = await getDoc(profileDocRef);
+            if (profileSnap.exists()) {
+                selectedAvatar = profileSnap.data().selectedAvatar || '1';
+                username = profileSnap.data().username || 'Misafir';
+            } else {
+                selectedAvatar = '1';
+                username = 'Misafir';
+            }
+
+            const statsDocRef = doc(highscoreCollectionRef,"restaurant_stats");
+            const statsSnap = await getDoc(statsDocRef);
+            if (statsSnap.exists()) {
+                const data = statsSnap.data();
+                totalRatingPoints = data.totalRatingPoints || 0;
+                customerCount = data.customerCount || 0;
+                 // Firestore'dan yüklenen parayı kontrol et, 0 ise veya yoksa 1000 yap
+                 totalMoney = (data.totalMoney === null || data.totalMoney === undefined || data.totalMoney <= 0) ? 1000 : data.totalMoney;
+                const savedItems = data.playerOwnedItems || [];
+                playerOwnedItems = [...new Set([...defaultOwnedItems, ...savedItems])]; // Kayıtlı ve varsayılanları birleştir
+            } else {
+                totalRatingPoints = 0;
+                customerCount = 0;
+                totalMoney = 1000; // İlk yükleme, başlangıç jetonu
+                playerOwnedItems = [...defaultOwnedItems]; // Sadece varsayılanlar
+            }
+            // Sahip olunanlardan malzemeleri ayıkla
+            playerOwnedIngredients = playerOwnedItems.filter(name => {
+                 const item = ALL_GAME_ITEMS.find(item => item.name === name);
+                 return item && item.type === 'ingredient';
+            });
+
+
+            updateProfileAvatar();
+            updateUsernameUI();
+            updateMoneyDisplays(); // Jeton göstergelerini güncelle
+            updateCurrentlyAvailableIngredients();
+            console.log("Data loaded from Firestore:", {totalMoney, playerOwnedItems});
+        } catch(f) {
+            console.error("Error loading profile data:", f);
+            selectedAvatar = '1';
+            username = 'Misafir';
+            totalMoney = 1000; // Hata durumunda başlangıç jetonu
+            totalRatingPoints=0;
+            customerCount=0;
+            playerOwnedItems = [...defaultOwnedItems]; // Hata durumunda varsayılanlar
+            playerOwnedIngredients = playerOwnedItems.filter(name => {
+                 const item = ALL_GAME_ITEMS.find(item => item.name === name);
+                 return item && item.type === 'ingredient';
+             });
+            updateProfileAvatar();
+            updateUsernameUI();
+            updateMoneyDisplays(); // Jeton göstergelerini güncelle
+            updateCurrentlyAvailableIngredients();
+        } finally {
+             // Veri yüklendikten veya hata oluştuktan SONRA Hub'ı göster
+             if (gameState !== 'PLAYING' && gameState !== 'PAUSED') { // Sadece oyun başlamadıysa
+                 window.showGameHub();
+             }
+        }
+    }
+    function updateCurrentlyAvailableIngredients() { /* ... önceki gibi ... */
+        CURRENTLY_AVAILABLE_INGREDIENTS = ALL_POSSIBLE_INGREDIENTS.filter(ing => playerOwnedIngredients.includes(ing.name));
+        console.log("Available ingredients updated:", CURRENTLY_AVAILABLE_INGREDIENTS.map(i => i.name));
+    }
+    function updateMoneyDisplays() { /* ... önceki gibi ... */
+        moneyAmountDisplay.textContent = totalMoney.toLocaleString('tr-TR');
+        marketCoinAmount.textContent = totalMoney.toLocaleString('tr-TR');
+    }
+    function updateProfileAvatar() { /* ... önceki gibi ... */
+        const a=avatarUrls[selectedAvatar];
+        profileButtonImage.src = a; // Direkt img elementinin src'sini güncelle
+    }
+    function updateUsernameUI() { /* ... önceki gibi ... */
+         usernameInput.value=username;hubSignText.innerHTML=`<span class="block">${username}'in</span><span class="block">Restoranı</span>`
+    }
+
+    // --- OYUN AKIŞ KONTROL FONKSİYONLARI ---
+    const startPizzaGame = () => { /* ... önceki gibi ... */
+        if(gameState!=='HUB'||!isAuthReady)return;gameHubScreen.classList.add('hidden');gameHubScreen.style.display='none';orderTakingScreen.classList.remove('hidden');orderTakingScreen.style.display='flex';pizzaGameContainer.classList.add('hidden');canvas.style.display='none';currentActiveGame='PIZZA';startIdleCounter()
+    };
+    const startIdleCounter = () => { /* ... önceki gibi ... */
+        gameState='IDLE_COUNTER';
+        let availableCustomers = CUSTOMERS.filter(c => c.name !== lastCustomerName);
+        if (availableCustomers.length === 0) { availableCustomers = [...CUSTOMERS]; }
+        currentCustomer = availableCustomers[Math.floor(Math.random() * availableCustomers.length)];
+        lastCustomerName = currentCustomer.name;
+
+        let charSize = 400; let translateYValue = 25; // Varsayılan
+        if (currentCustomer.name === 'Gizem') { charSize = 300; translateYValue = 5; }
+
+        if (currentCustomer.default.startsWith('http')) { customerEmoji.src = currentCustomer.default; customerEmoji.alt = currentCustomer.name; customerEmoji.textContent = ''; customerEmoji.style.fontSize = '0'; customerEmoji.style.width = `${charSize}px`; customerEmoji.style.height = `${charSize}px`; }
+        else { customerEmoji.src = ''; customerEmoji.alt = ''; customerEmoji.textContent = currentCustomer.default; customerEmoji.style.fontSize = `${charSize}px`; customerEmoji.style.width = `${charSize}px`; customerEmoji.style.height = `${charSize}px`; }
+
+        let shadowTranslateY; let shadowWidth;
+        if (currentCustomer.name === 'Gizem') { shadowTranslateY = '+175px'; shadowWidth = '200px'; }
+        else { shadowTranslateY = '+195px'; shadowWidth = '250px'; }
+        customerEmoji.style.transform = `translateX(0px) translateY(${translateYValue}px)`;
+        characterShadow.style.transform = `translateX(0px) translateY(${shadowTranslateY})`;
+        characterShadow.style.width = shadowWidth; characterShadow.style.height = '30px';
+
+        const customerTopPosition = window.innerHeight - (100 + charSize + translateYValue);
+        // Konuşma balonunun yüksekliğini alıp hesaplama yapmadan önce görünür olmalı (ama gizli)
+         customerBubble.classList.remove('hidden');
+         customerBubble.style.visibility = 'hidden'; // Geçici olarak görünmez yap
+         const bubbleHeight = customerBubble.offsetHeight;
+         customerBubble.style.visibility = 'visible'; // Tekrar görünür yap
+         customerBubble.classList.add('hidden'); // Şimdi gizle
+
+         const bubbleTopPosition = customerTopPosition - bubbleHeight - 15; // Müşterinin tepesinin 15px üstü
+         customerBubble.style.top = `${bubbleTopPosition}px`;
+         customerBubble.style.bottom = 'auto';
+
+
+        customerName.textContent = currentCustomer.name;
+        orderDisplay.classList.add('hidden'); orderDisplay.style.display = 'none';
+        deliveredPizzaContainer.classList.add('hidden');
+        customerBubble.classList.add('hidden');
+         starRatingDisplay.innerHTML = ''; // Önceki yıldızları temizle
+        customerMessage.innerHTML = currentCustomer.messages.start;
+        customerEmoji.removeEventListener('click', handleCustomerClick);
+        customerEmoji.addEventListener('click', handleCustomerClick);
+        customerEmoji.style.cursor = 'pointer';
+    };
+    window.handleCustomerClick = () => { /* ... önceki gibi ... */
+        if(gameState!=='IDLE_COUNTER')return;customerEmoji.removeEventListener('click',handleCustomerClick);customerEmoji.style.cursor='default';gameState='ORDER_TAKING';window.generateNewOrder();
+
+        // MAX_CAUGHT_ITEMS: Siparişteki *sahip olunan ve yakalanması gereken* toplam parça sayısı
+        MAX_CAUGHT_ITEMS = 0;
+        currentOrder.forEach(item => {
+            if (playerOwnedIngredients.includes(item.name)) { // Sadece sahip olunanları say
+                 if (item.layer <= 2) {
+                     MAX_CAUGHT_ITEMS += 1;
+                 } else {
+                     MAX_CAUGHT_ITEMS += TOPPING_LOCATIONS[item.name]?.count || 0;
+                 }
+            }
+        });
+
+        // Tahmini ücret (sadece sahip olunan malzemelere göre değil, tüm siparişe göre)
+        const totalOrderValue = currentOrder.reduce((sum, item) => {
+             // Basit ücretlendirme: Her malzeme INGREDIENT_PRICE kadar ekler (Hamur hariç)
+             return item.name === 'Hamur' ? sum + BASE_PRICE : sum + INGREDIENT_PRICE;
+        }, 0);
+        estimatedPrice.textContent = `Ücret: ${totalOrderValue} 🪙`; // Jeton ikonu
+
+        orderDisplay.classList.remove('hidden');orderDisplay.style.display='flex';orderDisplay.style.cursor='pointer';orderDisplay.removeEventListener('click',launchFallingGameWithAnimation);orderDisplay.addEventListener('click',launchFallingGameWithAnimation);customerBubble.classList.remove('hidden');customerMessage.textContent=currentCustomer.messages.order;
+        starRatingDisplay.innerHTML = ''; // Sipariş alınırken yıldızları temizle
+     };
+    const launchFallingGameWithAnimation = () => { /* ... önceki gibi ... */
+        if(gameState!=='ORDER_TAKING')return;orderDisplay.style.cursor='default';orderDisplay.removeEventListener('click',launchFallingGameWithAnimation);orderDisplay.classList.add('zooming');setTimeout(()=>{orderDisplay.classList.remove('zooming');orderDisplay.classList.add('hidden');orderDisplay.style.display='none';orderTakingScreen.classList.add('hidden');orderTakingScreen.style.display='none';pizzaGameContainer.classList.remove('hidden');pizzaGameContainer.style.display='flex';canvas.style.display='block';launchFallingGameLogic()},300)
+    };
+
+    // DEĞİŞİKLİK: Pizza oyunu başlarken Hamur otomatik ekleniyor ve OYUN DÖNGÜSÜ BAŞLATILIYOR
+    const launchFallingGameLogic = () => {
+        console.log("Launching pizza game logic..."); // DEBUG
+        errorCount=0;
+        fallingIngredients=[];
+        caughtIngredients=[]; // Yakalananları sıfırla
+
+        // Hamur siparişte varsa (ki her zaman olmalı) ve sahipsek otomatik ekle
+        const hamurItem = ALL_POSSIBLE_INGREDIENTS.find(item => item.name === 'Hamur');
+        if (hamurItem && playerOwnedIngredients.includes('Hamur')) {
+             const hamurData = {...hamurItem};
+             caughtIngredients.push(hamurData); // Hamuru başlangıçta ekle
+
+             // MAX_CAUGHT_ITEMS'ı hamur hariç hesapla (çünkü o zaten eklendi)
+             MAX_CAUGHT_ITEMS = 0;
+             currentOrder.forEach(item => {
+                 if (playerOwnedIngredients.includes(item.name)) {
+                      if (item.name !== 'Hamur') { // Hamur hariç
+                           if (item.layer <= 2) { // Sos, Peynir
+                                MAX_CAUGHT_ITEMS += 1;
+                           } else { // Üst Malzemeler
+                                MAX_CAUGHT_ITEMS += TOPPING_LOCATIONS[item.name]?.count || 0;
+                           }
+                      }
+                 }
+             });
+
+
+             // Sipariş defterinde Hamur'u işaretle (eğer defter gösteriliyorsa)
+             const hamurIndex = currentOrder.findIndex(item => item.name === 'Hamur');
+             if (hamurIndex !== -1) {
+                 const hamurElement = document.getElementById(`item-${hamurIndex}`);
+                 if (hamurElement) {
+                     hamurElement.classList.remove('bg-yellow-300','border-red-500','bg-gray-200','border-gray-400');
+                     hamurElement.classList.add('bg-green-300','border-green-700','line-through');
+                 }
+             }
+        } else {
+             // Hamur yoksa veya sahip değilsek, MAX_CAUGHT_ITEMS normal hesaplanır
+             MAX_CAUGHT_ITEMS = 0;
+             currentOrder.forEach(item => {
+                 if (playerOwnedIngredients.includes(item.name)) {
+                     if (item.layer <= 2) { MAX_CAUGHT_ITEMS += 1; }
+                     else { MAX_CAUGHT_ITEMS += TOPPING_LOCATIONS[item.name]?.count || 0; }
+                 }
+             });
+        }
+
+
+        // Sahip olunan ve Hamur *olmayan* malzemelere göre süre hesapla
+        const ownedOtherItemsCount = currentOrder.filter(a => playerOwnedIngredients.includes(a.name) && a.name !== 'Hamur').length;
+        timeLimit = 15 + ownedOtherItemsCount * 5; // Sahip olunan hamur hariç her malzeme için +5sn
+        timeLeft = Math.max(15, timeLimit);
+        orderStartTime = Date.now();
+        timerDisplay.textContent = timeLeft.toFixed(1);
+
+        if(timeInterval) clearInterval(timeInterval);
+        timeInterval = setInterval(()=>{
+             updateTimer();
+             if(timeLeft <= 0 && gameState === 'PLAYING') finishOrder(true);
+        }, 100);
+
+        lastRequiredIngredientDropTime = Date.now();
+        gameState = 'PLAYING';
+        console.log("gameState set to PLAYING"); // DEBUG
+
+        // --- OYUN DÖNGÜSÜNÜ BAŞLAT ---
+        if (gameLoopRequestId) {
+             cancelAnimationFrame(gameLoopRequestId); // Önceki döngüyü durdur (varsa)
+        }
+        console.log("Starting game loop..."); // DEBUG
+        gameLoopRequestId = requestAnimationFrame(gameLoop); // Yeni döngüyü başlat
+        // -----------------------------
+     };
+
+    function updateTimer() { /* ... önceki gibi ... */
+        if(gameState!=='PLAYING')return;const a=(Date.now()-orderStartTime)/1e3;timeLeft=timeLimit-a;if(timeLeft<=0){timeLeft=0;timerDisplay.textContent='0.0';timerDisplay.className='text-red-500 font-extrabold'}else{timerDisplay.textContent=timeLeft.toFixed(1);timerDisplay.className=timeLeft<5?'text-red-500 font-extrabold':'text-yellow-300'}
+    }
+    // calculatePaymentAndRating (Önceki orantılı sistem doğru, değişiklik yok)
+    function calculatePaymentAndRating(isTimedOut = false) { /* ... önceki gibi ... */
+        // 1. Toplam Gerekli Parça Sayısını Hesapla (Siparişteki her şey, sahip olunmasa bile)
+        let totalRequiredPiecesForScoring = 0;
+        currentOrder.forEach(item => {
+            const itemDetails = ALL_GAME_ITEMS.find(i => i.name === item.name);
+            if (!itemDetails || itemDetails.type !== 'ingredient') return; // Sadece malzemeleri say
+
+            if (itemDetails.layer <= 2) { // Taban katmanlar 1 parça sayılır
+                 totalRequiredPiecesForScoring += 1;
+            } else { // Üst malzemeler adet kadar sayılır
+                 totalRequiredPiecesForScoring += TOPPING_LOCATIONS[itemDetails.name]?.count || 0;
+            }
+        });
+
+        // 2. Toplam Doğru Yakalanan Parça Sayısını Hesapla
+        let totalCorrectCaughtPieces = 0;
+        currentOrder.forEach(item => {
+             const itemDetails = ALL_GAME_ITEMS.find(i => i.name === item.name);
+             if (!itemDetails || itemDetails.type !== 'ingredient') return; // Sadece malzemeler
+
+             // Sadece sahip olunan ve siparişte olanlar doğru sayılabilir
+             if (!playerOwnedIngredients.includes(item.name)) return;
+
+             const caughtCount = caughtIngredients.filter(c => c.name === item.name).length;
+
+             if (itemDetails.layer <= 2) { // Taban katmanlar
+                 if (caughtCount >= 1) {
+                     totalCorrectCaughtPieces += 1;
+                 }
+             } else { // Üst malzemeler
+                 const requiredCount = TOPPING_LOCATIONS[itemDetails.name]?.count || 1;
+                 totalCorrectCaughtPieces += Math.min(caughtCount, requiredCount); // Fazla yakalananlar sayılmaz
+             }
+        });
+
+        // 3. Hamur Kontrolü (Eğer hamur gerekiyorsa ve yakalanmadıysa 0 puan)
+        const wasHamurRequired = currentOrder.some(item => item.name === 'Hamur');
+        const isHamurCaught = caughtIngredients.some(item => item.name === 'Hamur');
+        if (wasHamurRequired && !isHamurCaught) {
+            return { finalPayment: 0, starRatingValue: 0, finalMessage: currentCustomer.messages.wrong, emotion: currentCustomer.angry };
+        }
+
+        // 4. Puanlama Oranı ve Yıldız Hesabı
+        if (totalRequiredPiecesForScoring <= 0) {
+             console.warn("totalRequiredPiecesForScoring is 0, potential issue.");
+             // Eğer sipariş sadece Hamur ise ve yakalandıysa 5 yıldız ver
+             if (isHamurCaught && currentOrder.length === 1 && currentOrder[0].name === 'Hamur'){
+                  return { finalPayment: BASE_PRICE, starRatingValue: 5, finalMessage: currentCustomer.messages.perfect, emotion: currentCustomer.happy };
+             }
+             return { finalPayment: 0, starRatingValue: 0, finalMessage: currentCustomer.messages.wrong, emotion: currentCustomer.angry };
+        }
+
+
+        const baseRatio = totalCorrectCaughtPieces / totalRequiredPiecesForScoring;
+        let baseStars = baseRatio * 5;
+
+        // 5. Cezalar
+        baseStars -= (errorCount * ERROR_PENALTY); // Her hata için 0.5 yıldız düş
+        if (isTimedOut) {
+            baseStars *= 0.8; // Süre biterse %20 puan kes
+        }
+
+        // 6. Final Yıldızını Hesapla (0-5 arası, 0.5'lik adımlarla)
+        let finalStarRating = Math.max(0, Math.min(5, baseStars));
+        finalStarRating = Math.round(finalStarRating * 2) / 2; // En yakın 0.5'e yuvarla
+
+        // 7. Final Mesajı ve Duygu Durumu
+        let finalMessage = "";
+        let emotion = currentCustomer.default;
+        // Mükemmel durum: Gerekli TÜM parçalar doğru yakalandı mı?
+        let allRequiredPiecesCaughtCorrectly = totalCorrectCaughtPieces >= totalRequiredPiecesForScoring;
+
+
+        if (allRequiredPiecesCaughtCorrectly && errorCount === 0 && !isTimedOut) {
+            finalMessage = currentCustomer.messages.perfect;
+            emotion = currentCustomer.happy;
+            finalStarRating = 5; // Garantili 5 yıldız
+        } else if (finalStarRating >= 4.0) {
+            finalMessage = currentCustomer.messages.reactionGreat;
+            // Sadece hata yoksa, timeout yoksa ve puan 4.5+ ise mutlu olsun
+            emotion = (errorCount === 0 && !isTimedOut && finalStarRating >=4.5) ? currentCustomer.happy : currentCustomer.default;
+        } else if (finalStarRating >= 2.0) {
+            finalMessage = currentCustomer.messages.reactionAverage;
+            emotion = currentCustomer.default;
+        } else { // 2.0 altı
+            finalMessage = currentCustomer.messages.reactionPoor;
+            emotion = currentCustomer.angry;
+        }
+
+        // 8. Ödeme Hesaplaması (Yıldıza göre orantılı)
+        const totalOrderValue = currentOrder.reduce((sum, item) => {
+             // Sadece *sahip olunan* malzemelerin değeri toplama eklenir mi? Hayır, siparişin tam değeri.
+             return item.name === 'Hamur' ? sum + BASE_PRICE : sum + INGREDIENT_PRICE;
+        }, 0);
+        let paymentRatio = finalStarRating / 5;
+        let finalPayment = Math.floor(totalOrderValue * paymentRatio);
+
+        if (finalStarRating === 0) finalPayment = 0;
+
+        return {
+            finalPayment: Math.max(0, finalPayment), // Negatif olmasın
+            starRatingValue: finalStarRating,
+            finalMessage: finalMessage,
+            emotion: emotion
+        };
+    }
+    // Siparişi bitir (Değişiklik yok)
+    function finishOrder(isTimedOut = false) { /* ... önceki gibi ... */
+        clearInterval(timeInterval);gameState='READY_TO_DELIVER';pizzaGameContainer.classList.add('hidden');pizzaGameContainer.style.display='none';orderTakingScreen.classList.remove('hidden');orderTakingScreen.style.display='flex';canvas.style.display='none';orderDisplay.classList.add('hidden');orderDisplay.style.display='none';deliveredPizzaContainer.classList.remove('hidden');
+        deliveredPizzaPrice.textContent = ""; // Metin kaldırıldı
+        drawFinalPizza(deliveredPizzaCanvas);deliveredPizzaContainer.removeEventListener('click',deliverPizza);deliveredPizzaContainer.addEventListener('click',deliverPizza);deliveredPizzaContainer.style.cursor='pointer';let a=400;if(currentCustomer.name==='Gizem')a=300;if(currentCustomer.default.startsWith('http')){customerEmoji.src=currentCustomer.default;customerEmoji.style.fontSize='0'}else{customerEmoji.src='';customerEmoji.textContent=currentCustomer.default;customerEmoji.style.fontSize=`${a}px`}customerEmoji.style.width=`${a}px`;customerEmoji.style.height=`${a}px`;customerName.textContent=currentCustomer.name;customerBubble.classList.remove('hidden');
+        customerMessage.textContent="Pizza hazır mı? Merakla bekliyorum!"; // Yıldızları daha sonra ekle
+        starRatingDisplay.innerHTML = ''; // Teslime hazırda yıldızları temizle
+     }
+    // DEĞİŞİKLİK: Pizzayı teslim et (Yarım yıldız gösterimi eklendi)
+    const deliverPizza = () => {
+        if(gameState!=='READY_TO_DELIVER')return;deliveredPizzaContainer.removeEventListener('click',deliverPizza);deliveredPizzaContainer.style.cursor='default';
+        const result = calculatePaymentAndRating(false); // Önce sonucu al
+
+        // Yıldızları oluştur
+        const fullStars = Math.floor(result.starRatingValue);
+        const hasHalfStar = result.starRatingValue % 1 !== 0;
+        const emptyStars = 5 - Math.ceil(result.starRatingValue);
+
+        let starsHTML = '';
+        for (let i = 0; i < fullStars; i++) starsHTML += '<span class="star filled">★</span>';
+        if (hasHalfStar) starsHTML += '<span class="star half">★</span>'; // Yarım yıldız için class
+        for (let i = 0; i < emptyStars; i++) starsHTML += '<span class="star">☆</span>'; // Boş yıldız
+
+        starRatingDisplay.innerHTML = starsHTML; // Yıldızları konuşma balonuna ekle
+
+        // Müşteri ifadesi ve mesajı
+        let customerSize = 400; if(currentCustomer.name === 'Gizem') customerSize=300;
+        if(result.emotion.startsWith('http')){customerEmoji.src=result.emotion;customerEmoji.style.fontSize='0'}else{customerEmoji.src='';customerEmoji.textContent=result.emotion;customerEmoji.style.fontSize=`${customerSize}px`}
+        customerEmoji.style.width=`${customerSize}px`;customerEmoji.style.height=`${customerSize}px`;
+        customerMessage.textContent = result.finalMessage; // Mesajı güncelle (yıldızlar ayrı div'de)
+
+        // Diğer işlemler
+        deliveredPizzaContainer.classList.add('hidden');
+        totalMoney += result.finalPayment;
+        totalRatingPoints += result.starRatingValue;
+        customerCount++;
+        updateMoneyDisplays();
+        saveRestaurantStatsToFirestore();
+
+        if(result.finalPayment > 0){
+            paymentFeedback.textContent = `+${result.finalPayment} 🪙`; // Jeton ikonu
+            paymentFeedback.classList.remove('hidden','fade-out');
+            setTimeout(()=>{paymentFeedback.classList.add('fade-out')},100);
+            setTimeout(()=>{paymentFeedback.classList.add('hidden')},900);
+        }
+
+        setTimeout(startIdleCounter, 2000); // Bekleme süresini biraz artırdım (1500 -> 2000)
+
+        gameState = 'DELIVERED';
+    };
+    // togglePause, showGameHub, showProfileModal, closeProfileModal, saveAndCloseProfileModal (Değişiklik yok)
+    window.togglePause = function() { /* ... önceki gibi ... */
+        if(gameState==='PLAYING'){
+             if (timeInterval) clearInterval(timeInterval); // Zamanlayıcıyı durdur
+             gameState='PAUSED';
+             pauseMenu.classList.remove('hidden');
+        } else if(gameState==='PAUSED') {
+             if(currentActiveGame === 'PIZZA'){
+                  // Kalan süreye göre başlangıç zamanını ayarla
+                   orderStartTime = Date.now() - ((timeLimit - timeLeft) * 1000);
+                   if(timeInterval) clearInterval(timeInterval); // Eski interval'ı temizle (varsa)
+                   timeInterval = setInterval(() => {
+                        updateTimer();
+                        if(timeLeft <= 0 && gameState === 'PLAYING') finishOrder(true);
+                   }, 100);
+                   gameState='PLAYING';
+                   // --- DÖNGÜYÜ YENİDEN BAŞLAT ---
+                   if (gameLoopRequestId) cancelAnimationFrame(gameLoopRequestId);
+                   gameLoopRequestId = requestAnimationFrame(gameLoop);
+                   // -----------------------------
+             }
+             pauseMenu.classList.add('hidden');
+        }
+    };
+    window.showGameHub = function() { /* ... önceki gibi ... */
+        if(timeInterval) clearInterval(timeInterval); // Zamanlayıcıyı temizle
+        if(gameLoopRequestId) cancelAnimationFrame(gameLoopRequestId); // Oyun döngüsünü durdur
+        gameLoopRequestId = null; // ID'yi sıfırla
+        gameState='HUB';
+        currentActiveGame=null;
+        pizzaGameContainer.classList.add('hidden');pizzaGameContainer.style.display='none';
+        orderTakingScreen.classList.add('hidden');orderTakingScreen.style.display='none';
+        pauseMenu.classList.add('hidden');
+        gameHubScreen.classList.remove('hidden');gameHubScreen.style.display='flex';
+        canvas.style.display='none';
+        // Modalları gizle
+         profileModal.style.display = 'none';
+         marketModal.style.display = 'none';
+         // coinPurchaseModal.style.display = 'none'; // KALDIRILDI
+    };
+    window.showProfileModal = function() { /* ... önceki gibi ... */
+        orderTakingScreen.classList.add('hidden');orderTakingScreen.style.display='none';pizzaGameContainer.classList.add('hidden');pizzaGameContainer.style.display='none';marketModal.style.display='none';// coinPurchaseModal.style.display='none'; // KALDIRILDI
+        profileUserId.textContent=userId||"Misafir (Veri Kaydı Yok)";if(customerCount>0){const a=(totalRatingPoints/customerCount).toFixed(1);profileRatingDisplay.textContent=`★ ${a} / 5 (${customerCount} oy)`;}else profileRatingDisplay.textContent='Puan Yok';usernameInput.value=username;document.querySelectorAll('.profile-avatar-option').forEach(a=>{a.classList.remove('selected');if(a.dataset.avatar===selectedAvatar)a.classList.add('selected')});profileTabContent.classList.remove('hidden');friendsTabContent.classList.add('hidden');profileTabButton.classList.add('text-blue-600','border-blue-600');profileTabButton.classList.remove('text-gray-500');friendsTabButton.classList.add('text-gray-500');friendsTabButton.classList.remove('text-blue-600','border-blue-600');profileModal.style.display='flex'
+    };
+    window.closeProfileModal = function() { /* ... önceki gibi ... */
+        profileModal.style.display='none';
+        window.showGameHub(); // Profili kapatınca Hub'a dön
+    };
+    window.saveAndCloseProfileModal = function() { /* ... önceki gibi ... */
+         const newUsername = usernameInput.value;
+        if (newUsername.trim() !== '') { username = newUsername.trim(); } else { username = 'Misafir'; }
+        updateUsernameUI();
+        updateProfileAvatar();
+        saveProfileSettingsToFirestore();
+        profileModal.style.display = 'none';
+        window.showGameHub(); // Profili kaydedince Hub'a dön
+    };
+
+    // showMarketModal (Jeton ikonu eklendi)
+    window.showMarketModal = function() { /* ... önceki gibi ... */
+        orderTakingScreen.classList.add('hidden');orderTakingScreen.style.display='none';
+        pizzaGameContainer.classList.add('hidden');pizzaGameContainer.style.display='none';
+        profileModal.style.display='none';
+        // coinPurchaseModal.style.display='none'; // KALDIRILDI
+
+        marketCoinAmount.textContent = totalMoney.toLocaleString('tr-TR'); // Jeton miktarını güncelle
+        marketItemsContainer.innerHTML = ''; // İçeriği temizle
+
+        // Tüm market ürünlerini (isMarketItem: true olanlar) işle
+        ALL_GAME_ITEMS.filter(item => item.isMarketItem).forEach(item => {
+            const isOwned = playerOwnedItems.includes(item.name);
+            const itemPrice = item.price || 0;
+            const canAfford = totalMoney >= itemPrice;
+            const isComingSoon = item.comingSoon || false;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'market-item';
+
+            // Görsel
+            const imgElement = document.createElement('img');
+            // loadImage ile önceden yüklenmiş resmi al, yoksa URL kullan
+            const cachedImg = imageCache[item.imageUrl]?.image;
+            imgElement.src = cachedImg ? cachedImg.src : (item.imageUrl || 'https://placehold.co/60x60/cccccc/ffffff?text=?');
+            imgElement.alt = item.name;
+            itemDiv.appendChild(imgElement);
+
+            // İsim
+            const nameElement = document.createElement('p');
+            nameElement.textContent = item.name;
+            itemDiv.appendChild(nameElement);
+
+            // Fiyat (Yakında değilse)
+            if (!isComingSoon) {
+                 const priceElement = document.createElement('p');
+                 priceElement.className = 'price';
+                 priceElement.innerHTML = `${itemPrice.toLocaleString('tr-TR')} 🪙`; // Jeton ikonu
+                 itemDiv.appendChild(priceElement);
+            }
+
+            // Durum Rozeti veya Buton
+            if (isComingSoon) {
+                 const comingSoonBadge = document.createElement('span');
+                 comingSoonBadge.className = 'coming-soon-badge';
+                 comingSoonBadge.textContent = 'Yakında';
+                 itemDiv.appendChild(comingSoonBadge);
+                 itemDiv.style.opacity = '0.6'; // Biraz soluk göster
+            } else if (isOwned) {
+                 const ownedBadge = document.createElement('span');
+                 ownedBadge.className = 'owned-badge';
+                 ownedBadge.textContent = 'Sahipsin';
+                 itemDiv.appendChild(ownedBadge);
+            } else { // Satın alma butonu
+                 const buyButton = document.createElement('button');
+                 buyButton.textContent = 'Satın Al';
+                 buyButton.className = 'game-button bg-green-500 hover:bg-green-600 text-white text-sm py-1 px-3 mt-2';
+                 buyButton.disabled = !canAfford;
+                 buyButton.onclick = () => buyItem(item.name, itemPrice); // Genel item satın alma
+                 itemDiv.appendChild(buyButton);
+            }
+
+            marketItemsContainer.appendChild(itemDiv);
+        });
+
+        marketModal.style.display = 'flex';
+    }
+    // closeMarketModal, buyItem (Değişiklik yok)
+    window.closeMarketModal = function() { /* ... önceki gibi ... */
+         marketModal.style.display='none';
+        window.showGameHub(); // Marketi kapatınca Hub'a dön
+    }
+    window.buyItem = async function(itemName, itemPrice) { /* ... önceki gibi ... */
+        const itemData = ALL_GAME_ITEMS.find(i => i.name === itemName);
+       if (!itemData || itemData.comingSoon) return; // Yakında ise satın alınamaz
+
+       if(playerOwnedItems.includes(itemName)){console.log(`${itemName} zaten sahip.`);return}
+       if(totalMoney < itemPrice){console.log("Yeterli jeton yok.");return}
+
+       totalMoney -= itemPrice;
+       playerOwnedItems.push(itemName); // Genel listeye ekle
+
+       // Eğer alınan item bir malzeme ise, ingredient listesini de güncelle
+       if (itemData.type === 'ingredient') {
+            playerOwnedIngredients = playerOwnedItems.filter(name => {
+                 const item = ALL_GAME_ITEMS.find(i => i.name === name);
+                 return item && item.type === 'ingredient';
+            });
+           updateCurrentlyAvailableIngredients();
+       }
+
+       updateMoneyDisplays(); // Jeton göstergelerini güncelle
+       window.showMarketModal(); // Marketi yenile
+       await saveRestaurantStatsToFirestore(); // Kaydet
+       console.log(`${itemName} satın alındı!`);
+    }
+
+    // KALDIRILDI: Jeton Satın Alma Fonksiyonları
+
+
+    // --- FIREBASE AUTH --- (Değişiklik yok)
+    const createInitialGuestUser = () => { /* ... önceki gibi ... */
+        if(userId===null)userId=`GUEST_${crypto.randomUUID()}`; // Daha güvenli ID
+       isAuthReady=true;
+       loadAllProfileDataFromFirestore(); // Misafir için de veriyi yükle (başlangıç jetonu vb.)
+    }
+    const initFirebaseAndAuth = async () => { /* ... önceki gibi ... */
+        try{
+            const configString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+            const firebaseConfig = JSON.parse(configString);
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            if(Object.keys(firebaseConfig).length === 0){
+                 console.warn("Firebase config missing. Using defaults / anonymous.");
+                  createInitialGuestUser(); // Firebase yoksa misafir oluştur
+            } else {
+                 app = initializeApp(firebaseConfig);
+                 setLogLevel('debug');
+                 db = getFirestore(app);
+                 auth = getAuth(app);
+                 await setPersistence(auth, browserSessionPersistence);
+
+                 const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                 onAuthStateChanged(auth, async (user) => {
+                     if (user) {
+                         console.log("User is signed in:", user.uid);
+                         userId = user.uid;
+                         highscoreCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/game_data`);
+                         await loadAllProfileDataFromFirestore(); // Veriyi yükle
+                         isAuthReady = true;
+                     } else {
+                         console.log("User is signed out or anonymous.");
+                         // Eğer token yoksa ve kullanıcı yoksa, anonim giriş yapmayı dene
+                         if (!initialToken) {
+                             try {
+                                 await signInAnonymously(auth);
+                                 console.log("Signed in anonymously.");
+                                 // onAuthStateChanged tekrar tetiklenecek
+                             } catch (anonError) {
+                                 console.error("Anonymous sign-in failed:", anonError);
+                                 createInitialGuestUser(); // Anonim de olmazsa misafir oluştur
+                             }
+                         } else {
+                             // Token vardı ama kullanıcı yok? Garip durum, misafirle devam et.
+                             console.warn("Initial token provided but user is null.");
+                             createInitialGuestUser();
+                         }
+                     }
+                 });
+
+                 // Token varsa giriş yapmayı dene
+                 if (initialToken) {
+                     try {
+                         await signInWithCustomToken(auth, initialToken);
+                         console.log("Signed in with custom token.");
+                         // onAuthStateChanged tetiklenecek
+                     } catch (tokenError) {
+                         console.error("Custom token sign-in failed:", tokenError);
+                         // Token ile giriş başarısız olursa anonim giriş yapmayı dene
+                         try {
+                             await signInAnonymously(auth);
+                             console.log("Signed in anonymously after token failure.");
+                             // onAuthStateChanged tetiklenecek
+                         } catch (anonError) {
+                             console.error("Anonymous sign-in failed after token failure:", anonError);
+                             createInitialGuestUser(); // O da olmazsa misafir oluştur
+                         }
+                     }
+                 } else if (!auth.currentUser) {
+                      // Token yoksa ve henüz kullanıcı yoksa (ilk yükleme), anonim giriş yapmayı dene
+                      try {
+                         await signInAnonymously(auth);
+                         console.log("Signed in anonymously on initial load.");
+                         // onAuthStateChanged tetiklenecek
+                      } catch (anonError) {
+                         console.error("Anonymous sign-in failed on initial load:", anonError);
+                         createInitialGuestUser(); // O da olmazsa misafir oluştur
+                      }
+                 }
+                 // Eğer zaten bir kullanıcı varsa (sayfa yenilendi vs.), onAuthStateChanged onu yakalayacak.
+            }
+
+        } catch(d) {
+            console.error("Firebase init error:", d);
+            createInitialGuestUser(); // Genel hata durumunda misafir oluştur
+        }
+    };
+
+    // --- YARDIMCI FONKSİYONLAR ---
+    window.generateNewOrder = () => { /* ... önceki gibi ... */
+        let a=[ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Hamur')];
+        if (Math.random() < 0.8) a.push(ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Sos'));
+        if (Math.random() < 0.8) a.push(ALL_POSSIBLE_INGREDIENTS.find(a=>a.name==='Peynir'));
+
+        const b=ALL_POSSIBLE_INGREDIENTS.filter(a=>a.layer>=3),c=Math.floor(Math.random()*3)+1;let d=[...b];for(let e=0;e<c;e++){if(d.length===0)break;const f=Math.floor(Math.random()*d.length);a.push(d[f]);d.splice(f,1)}currentOrder=a;requiredOrderDiv.innerHTML='';currentOrder.forEach((b,c)=>{const d=document.createElement('span');d.id=`item-${c}`;d.className=`order-item border-2 transition-all duration-300 mx-1 ${c===0?'bg-yellow-300 border-red-500':'bg-gray-200 border-gray-400'}`;
+        // Sahip olunmayan market ürünlerini grileştir
+        if(b.isMarketItem && !playerOwnedItems.includes(b.name)){
+             d.classList.add('opacity-50','grayscale');d.title="Bu malzemeye sahip değilsin!"
+        }
+        const e=getFallingImageElement(b.name);d.appendChild(e);requiredOrderDiv.appendChild(d)})
+    }
+    function getFallingImageElement(itemName) { /* ... önceki gibi ... */
+        const itemData = ALL_GAME_ITEMS.find(item => item.name === itemName);
+        const imageUrl = itemData?.imageUrl || ''; // Fallback
+        const img = document.createElement('img');
+        img.src = imageUrl || 'https://placehold.co/30x30/cccccc/ffffff?text=?'; // Fallback
+        img.alt = itemName;
+        // Hata durumunda alternatif gösterim (opsiyonel)
+        img.onerror = () => { img.src = 'https://placehold.co/30x30/cccccc/ffffff?text=?'; console.warn(`Image failed to load for: ${itemName}`); };
+        return img;
+    }
+    // checkCollision (Değişiklik yok)
+    function checkCollision(item) { /* ... önceki gibi ... */
+        const a=PIZZA_RADIUS,b=canvas.height*.9,c=item.x+item.size/2-playerX,d=a/2+item.size/2;if(item.y+item.size>b-a&&item.y<b+50){if(Math.abs(c)<d)return true}return false
+    }
+    // handleCatch (DEĞİŞİKLİK: Hamur yakalama kontrolü kaldırıldı)
+    function handleCatch(ingredient) {
+        const ingredientName = ingredient.data.name;
+        // Hamur artık yakalanmaz
+        if (ingredientName === 'Hamur') return;
+
+        const isRequired = currentOrder.some(item => item.name === ingredientName);
+
+        if (!isRequired) { errorCount++; return; } // Siparişte yoksa hata
+
+        const toppingInfo = TOPPING_LOCATIONS[ingredientName];
+        const totalNeeded = toppingInfo?.count || 1;
+        const alreadyCaughtCount = caughtIngredients.filter(item => item.name === ingredientName).length;
+
+        if (alreadyCaughtCount >= totalNeeded) { errorCount++; return; } // Zaten yakalanmışsa hata
+
+        // Üst malzeme veya Taban Katman (Sos, Peynir)
+        const newPieces = [];
+        const piecesToAdd = (ingredient.data.layer >= 3) ? (totalNeeded - alreadyCaughtCount) : 1; // Üstse hepsini, tabansa 1 tane ekle
+
+        for (let i = 0; i < piecesToAdd; i++) {
+             newPieces.push({ ...ingredient.data });
+        }
+        caughtIngredients.push(...newPieces);
+
+        // UI'da işaretle (Sipariş defteri)
+        const itemIndex = currentOrder.findIndex(item => item.name === ingredientName);
+        if (itemIndex !== -1) {
+            const element = document.getElementById(`item-${itemIndex}`);
+            if (element) {
+                 // Hamur zaten işaretli olmalı, diğerlerini işaretle
+                 element.classList.remove('bg-yellow-300', 'border-red-500', 'bg-gray-200', 'border-gray-400');
+                 element.classList.add('bg-green-300', 'border-green-700', 'line-through');
+            }
+        }
+
+        lastRequiredIngredientDropTime = Date.now();
+        // Bitiş kontrolü gameLoop'ta yapılıyor
+    }
+
+
+    // --- OYUN BAŞLATMA ve EVENT LISTENERS ---
+     function initializeGame() {
+          console.log("Initializing game variables and loading images...");
+          // Görsel değişkenlerini yükle
+          restaurantBgImage = loadImage(RESTAURANT_BG_URL, 'Restoran Arka Planı');
+          gizemDefaultImage = loadImage(GIZEM_DEFAULT_URL, 'Gizem');
+          muratDefaultImage = loadImage(MURAT_DEFAULT_URL, 'Murat');
+          muratHappyImage = loadImage(MURAT_HAPPY_URL, 'Murat Mutlu');
+          muratAngryImage = loadImage(MURAT_ANGRY_URL, 'Murat Kızgın');
+          ayseDefaultImage = loadImage(AYSE_DEFAULT_URL, 'Ayşe');
+          ayseHappyImage = loadImage(AYSE_HAPPY_URL, 'Ayşe Mutlu');
+          ayseAngryImage = loadImage(AYSE_ANGRY_URL, 'Ayşe Kızgın');
+          canDefaultImage = loadImage(CAN_DEFAULT_URL, 'Can');
+          canHappyImage = loadImage(CAN_HAPPY_URL, 'Can Mutlu');
+          canAngryImage = loadImage(CAN_ANGRY_URL, 'Can Kızgın');
+          counterForegroundImage = loadImage(COUNTER_FOREGROUND_URL, 'Tezgah Ön Plan');
+          pizzaBaseImage = loadImage(PIZZA_BASE_URL, 'Pizza Tabanı');
+          tomatoFallingImage = loadImage(TOMATO_FALLING_URL, 'Sos Düşen');
+          oliveFallingImage = loadImage(OLIVE_FALLING_URL, 'Zeytin Düşen');
+          pepperFallingImage = loadImage(PEPPER_FALLING_URL, 'Biber Düşen');
+          onionFallingImage = loadImage(ONION_FALLING_URL, 'Soğan Düşen');
+          cheeseFallingImage = loadImage(CHEESE_FALLING_URL, 'Peynir Düşen');
+          sujukImage = loadImage(SUJUK_URL, 'Sucuk');
+          mushroomFallingImage = loadImage(MUSHROOM_FALLING_URL, 'Mantar Düşen');
+          pizzaWithSauceImage = loadImage(PIZZA_WITH_SAUCE_URL, 'Soslu Pizza');
+          cheeseToppingImage = loadImage(CHEESE_TOPPING_URL, 'Peynir Üst');
+          oliveImage = loadImage(OLIVE_URL, 'Zeytin Üst');
+          pepperImage = loadImage(PEPPER_URL, 'Biber Üst');
+          onionImage = loadImage(ONION_URL, 'Soğan Üst');
+          mushroomToppingImage = loadImage(MUSHROOM_TOPPING_URL, 'Mantar Üst');
+          kitchenBgImage = loadImage(KITCHEN_BG_URL, 'Mutfak Arka Planı');
+          hotdogIconImage = loadImage(HOTDOG_ICON_URL, 'Sosisli');
+          hamburgerIconImage = loadImage(HAMBURGER_ICON_URL, 'Hamburger');
+          durumIconImage = loadImage(DURUM_ICON_URL, 'Dürüm');
+          fridgeIconImage = loadImage(FRIDGE_ICON_URL, 'Buzdolabı');
+          coinImage = loadImage(COIN_IMAGE_URL, 'Jeton');
+
+          // setupCanvasResize(); // Canvas boyutu ayarlanmıyor, sabit kullanılıyor
+          playerX = canvas.width / 2; // Oyuncuyu ortala
+
+          // Event Listenerları burada ata
+          gameHubScreen.addEventListener('click', startPizzaGame);
+          document.addEventListener('keydown', (e) => {
+               const step = 20;
+               if (gameState === 'PLAYING' && currentActiveGame === 'PIZZA') {
+                   if (e.key === 'ArrowLeft' || e.code === 'ArrowLeft') playerX = Math.max(PIZZA_RADIUS, playerX - step);
+                   else if (e.key === 'ArrowRight' || e.code === 'ArrowRight') playerX = Math.min(canvas.width - PIZZA_RADIUS, playerX + step);
+               }
+               if (e.key === 'Escape') {
+                    if (gameState === 'PLAYING' || gameState === 'PAUSED') window.togglePause();
+                    else if (marketModal.style.display === 'flex') window.closeMarketModal();
+                    else if (profileModal.style.display === 'flex') window.closeProfileModal();
+                    // else if (coinPurchaseModal.style.display === 'flex') window.closeCoinPurchaseModal(); // KALDIRILDI
+                    else if (['IDLE_COUNTER', 'ORDER_TAKING', 'READY_TO_DELIVER', 'DELIVERED'].includes(gameState)) window.showGameHub();
+               }
+          });
+          canvas.addEventListener('mousemove', (e) => {
+               const rect = canvas.getBoundingClientRect();
+               const scaleX = canvas.width / rect.width;
+               const mouseX = (e.clientX - rect.left) * scaleX;
+               if (gameState === 'PLAYING' && currentActiveGame === 'PIZZA') {
+                   playerX = Math.min(Math.max(PIZZA_RADIUS, mouseX), canvas.width - PIZZA_RADIUS);
+               }
+          });
+          canvas.addEventListener('touchmove', (e) => {
+               if (gameState === 'PLAYING' && currentActiveGame === 'PIZZA') {
+                   e.preventDefault();
+                   const rect = canvas.getBoundingClientRect();
+                   const scaleX = canvas.width / rect.width;
+                   const touchX = (e.touches[0].clientX - rect.left) * scaleX;
+                   playerX = Math.min(Math.max(PIZZA_RADIUS, touchX), canvas.width - PIZZA_RADIUS);
+               }
+          }, { passive: false });
+          if (mainMenuButton) mainMenuButton.addEventListener('click', window.showGameHub);
+          if (continueButton) continueButton.addEventListener('click', window.togglePause);
+          if (pizzaPauseButton) pizzaPauseButton.addEventListener('click', window.togglePause);
+          if (profileButton) profileButton.addEventListener('click', (e) => { e.stopPropagation(); window.showProfileModal(); });
+          if (marketButton) marketButton.addEventListener('click', (e) => { e.stopPropagation(); window.showMarketModal(); });
+          if (profileTabButton) profileTabButton.addEventListener('click', () => { profileTabContent.classList.remove('hidden'); friendsTabContent.classList.add('hidden'); profileTabButton.classList.add('text-blue-600', 'border-blue-600'); profileTabButton.classList.remove('text-gray-500'); friendsTabButton.classList.add('text-gray-500'); friendsTabButton.classList.remove('text-blue-600', 'border-blue-600'); });
+          if (friendsTabButton) friendsTabButton.addEventListener('click', () => { profileTabContent.classList.add('hidden'); friendsTabContent.classList.remove('hidden'); profileTabButton.classList.add('text-gray-500'); profileTabButton.classList.remove('text-blue-600', 'border-blue-600'); friendsTabButton.classList.add('text-blue-600', 'border-blue-600'); friendsTabButton.classList.remove('text-gray-500'); });
+          document.querySelectorAll('.profile-avatar-option').forEach(option => {
+               option.addEventListener('click', (e) => { document.querySelectorAll('.profile-avatar-option').forEach(opt => opt.classList.remove('selected')); option.classList.add('selected'); selectedAvatar = option.dataset.avatar; });
+          });
+
+          console.log("Game initialized.");
+          // Oyun döngüsü startGameAfterLoading tarafından başlatılacak (görseller yüklenince)
+          // veya launchFallingGameLogic içinde manuel olarak başlatılacak.
+     }
+
+    // KALDIRILDI: Görsel yüklenmesini bekleyip oyunu başlatan fonksiyon
+    // function startGameAfterLoading() { ... }
+
+
+    window.onload = async function() {
+         console.log("Window loaded, initializing Firebase and Game..."); // DEBUG
+         await initFirebaseAndAuth(); // Önce Firebase'i ve kullanıcıyı bekle
+         initializeGame(); // Sonra oyunu initialize et (event listener'ları kur, görselleri yükle)
+         // Oyun döngüsü (gameLoop) artık sadece pizza oyunu başladığında launchFallingGameLogic içinde başlayacak.
+     }
+
+</script>
+</body>
+</html>
+
